@@ -167,7 +167,7 @@ export default function HomeScreen() {
 
       {/* Países */}
       <View>
-        <Section title="Países" onSeeAll={() => router.push("/canales")} />
+        <Section title="Países" onSeeAll={() => router.push("/paises")} />
         <View style={styles.grid}>
           {QUICK_COUNTRIES.map((c) => (
             <Pressable
