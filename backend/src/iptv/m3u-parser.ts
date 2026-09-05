@@ -51,10 +51,28 @@ export function baseId(tvgId: string): string {
   return tvgId.replace(/@[A-Za-z0-9]+$/, "");
 }
 
-/** Deriva el país del sufijo `.xx` del tvg-id (best-effort). */
+/** Deriva el país del sufijo `.xx` o prefijo `xx.` del tvg-id (best-effort). */
 export function countryCodeFromId(tvgId: string): string | null {
-  const match = baseId(tvgId).match(/\.([a-z]{2})$/i);
-  return match === null ? null : match[1].toUpperCase();
+  const base = baseId(tvgId);
+  const suffix = base.match(/\.([a-z]{2})$/i);
+  if (suffix !== null) return suffix[1].toUpperCase();
+  const prefix = base.match(/^([a-z]{2})\./i);
+  if (prefix !== null) return prefix[1].toUpperCase();
+  return null;
+}
+
+/** Normaliza un nombre para deduplicar entre fuentes (sin acentos/calidad/sufijos). */
+export function normalizeName(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/@(fhd|uhd|4k|hd|sd|2160p?|1080p?|720p?|576p?|480p?)/gi, "")
+    .replace(/\((1080p|720p|576p|480p|2160p)\)/gi, "")
+    .replace(/\b(fhd|uhd|4k)\b/gi, "")
+    .replace(/\s*\|\s*[a-z]{2}\s*$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /** Rank de calidad: FHD/4K > HD/1080p > SD/720p > resto. */
@@ -128,7 +146,10 @@ export function parseM3u(content: string): ParsedChannel[] {
       .filter((c) => c !== "" && c.toLowerCase() !== "undefined");
 
     channels.push({
-      externalId: baseId(tvgId),
+      externalId:
+        countryCodeFromId(tvgId) !== null
+          ? `${countryCodeFromId(tvgId)}:${normalizeName(name)}`
+          : baseId(tvgId),
       name,
       logoUrl: logoUrl === null || logoUrl === "" ? null : logoUrl,
       streamUrl,
