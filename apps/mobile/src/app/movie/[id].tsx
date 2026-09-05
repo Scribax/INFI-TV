@@ -31,6 +31,20 @@ export default function MovieScreen() {
         javaScriptEnabled
         domStorageEnabled
         setSupportMultipleWindows={false}
+        onShouldStartLoadWithRequest={(request) => {
+          // Bloquear navegación top-level a dominios de ads/redirects: unlimplay
+          // mete popups y prerolls de apuestas. Solo se permite el dominio de
+          // unlimplay en el frame principal; los streams viven en subframes.
+          if (request.isTopFrame) {
+            try {
+              const host = new URL(request.url).hostname;
+              if (!host.endsWith("unlimplay.com")) return false;
+            } catch {
+              return true;
+            }
+          }
+          return true;
+        }}
       />
     </View>
   );
