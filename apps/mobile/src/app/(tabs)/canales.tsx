@@ -42,8 +42,20 @@ function Chip({
 export default function CanalesScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ country?: string; category?: string }>();
-  const [country, setCountry] = useState<string | undefined>(params.country);
-  const [category, setCategory] = useState<string | undefined>(params.category);
+  // Los params de navegación (home → /canales?country=CL) son la fuente de
+  // verdad. Si la tab ya estaba montada, el useState inicial no vería el param
+  // nuevo: ajuste de estado durante el render (patrón oficial de React).
+  const [filters, setFilters] = useState({
+    country: params.country,
+    category: params.category,
+  });
+  if (
+    filters.country !== params.country ||
+    filters.category !== params.category
+  ) {
+    setFilters({ country: params.country, category: params.category });
+  }
+  const { country, category } = filters;
 
   const countries = useCountries();
   const categories = useCategories();
@@ -79,14 +91,14 @@ export default function CanalesScreen() {
           <Chip
             label="🌎 Todos"
             active={country === undefined}
-            onPress={() => setCountry(undefined)}
+            onPress={() => setFilters((f) => ({ ...f, country: undefined }))}
           />
           {countries.map((c) => (
             <Chip
               key={c.code}
               label={`${flagEmoji(c.code)} ${c.name}`}
               active={country === c.code}
-              onPress={() => setCountry(c.code)}
+              onPress={() => setFilters((f) => ({ ...f, country: c.code }))}
             />
           ))}
         </ScrollView>
@@ -98,14 +110,14 @@ export default function CanalesScreen() {
           <Chip
             label="Todas"
             active={category === undefined}
-            onPress={() => setCategory(undefined)}
+            onPress={() => setFilters((f) => ({ ...f, category: undefined }))}
           />
           {categories.map((c) => (
             <Chip
               key={c.id}
               label={categoryLabel(c.slug)}
               active={category === c.slug}
-              onPress={() => setCategory(c.slug)}
+              onPress={() => setFilters((f) => ({ ...f, category: c.slug }))}
             />
           ))}
         </ScrollView>
