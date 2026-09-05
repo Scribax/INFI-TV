@@ -8,6 +8,7 @@ import { IptvSyncController } from "./iptv-sync.controller";
 import { IptvSyncScheduler } from "./iptv-sync.scheduler";
 import { IptvSyncService } from "./iptv-sync.service";
 import { StreamHealthService } from "./stream-health.service";
+import { StreamHealthScheduler } from "./stream-health.scheduler";
 
 @Module({
   imports: [AuthModule, AuditModule],
@@ -16,6 +17,7 @@ import { StreamHealthService } from "./stream-health.service";
     IptvSyncService,
     IptvSyncScheduler,
     StreamHealthService,
+    StreamHealthScheduler,
     EpgSyncService,
     EpgSyncScheduler,
   ],
