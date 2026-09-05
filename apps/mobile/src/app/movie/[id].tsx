@@ -84,7 +84,10 @@ export default function MovieScreen() {
         <Pressable
           style={({ pressed }) => [styles.playBtn, pressed && styles.playPressed]}
           onPress={() =>
-            router.push({ pathname: "/watch/[id]", params: { id, title: name } })
+            router.push({
+              pathname: "/watch/[id]",
+              params: { id, title: name, poster: movie?.poster ?? undefined },
+            })
           }
         >
           <Play size={20} color="#FFFFFF" fill="#FFFFFF" />

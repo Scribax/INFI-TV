@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -12,30 +12,54 @@ import { ArrowLeft } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts } from "@/constants/theme";
 import { fetchMovieStream } from "@/lib/vod";
+import { getProgressById, saveProgress } from "@/lib/progress";
 
-function VideoPlayer({ url }: { url: string }) {
+function VideoPlayer({
+  url,
+  startAt,
+  onPosition,
+}: {
+  url: string;
+  startAt: number;
+  onPosition: (position: number, duration: number) => void;
+}) {
   const player = useVideoPlayer(url, (p) => {
+    if (startAt > 5) {
+      p.currentTime = startAt;
+    }
     p.play();
   });
-  return (
-    <VideoView
-      player={player}
-      style={styles.video}
-      nativeControls
-    />
-  );
+
+  useEffect(() => {
+    const sub = player.addListener("timeUpdate", (e) => {
+      onPosition(e.currentTime, player.duration);
+    });
+    return () => sub.remove();
+  }, [player, onPosition]);
+
+  return <VideoView player={player} style={styles.video} nativeControls />;
 }
 
-/** Reproductor nativo (expo-video) de una película vía stream Xtream. */
+/** Reproductor nativo (expo-video) con resume de posición. */
 export default function WatchScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { id, title } = useLocalSearchParams<{ id: string; title?: string }>();
+  const { id, title, poster } = useLocalSearchParams<{
+    id: string;
+    title?: string;
+    poster?: string;
+  }>();
   const [url, setUrl] = useState<string | null>(null);
+  const [startAt, setStartAt] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const positionRef = useRef(0);
+  const durationRef = useRef(0);
 
   useEffect(() => {
     let alive = true;
+    getProgressById(id).then((p) => {
+      if (alive && p !== null) setStartAt(p.position);
+    });
     fetchMovieStream(id)
       .then((r) => {
         if (alive) setUrl(r.url);
@@ -47,6 +71,29 @@ export default function WatchScreen() {
       alive = false;
     };
   }, [id]);
+
+  const onPosition = useCallback((position: number, duration: number) => {
+    positionRef.current = position;
+    durationRef.current = duration;
+  }, []);
+
+  // Al salir, guarda el progreso si se avanzó lo suficiente (más de 10s y falta +30s).
+  useEffect(() => {
+    return () => {
+      const pos = positionRef.current;
+      const dur = durationRef.current;
+      if (pos > 10 && dur > 0 && pos < dur - 30) {
+        void saveProgress({
+          id,
+          name: title ?? "Película",
+          poster: poster ?? null,
+          position: pos,
+          duration: dur,
+          updatedAt: Date.now(),
+        });
+      }
+    };
+  }, [id, title, poster]);
 
   return (
     <View style={styles.container}>
@@ -61,7 +108,7 @@ export default function WatchScreen() {
       </View>
 
       {url !== null ? (
-        <VideoPlayer url={url} />
+        <VideoPlayer url={url} startAt={startAt} onPosition={onPosition} />
       ) : error !== null ? (
         <View style={styles.center}>
           <Text style={styles.error}>{error}</Text>

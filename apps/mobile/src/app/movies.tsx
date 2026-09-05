@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
   Pressable,
@@ -8,13 +8,15 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { ArrowLeft, Search } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts } from "@/constants/theme";
 import { fetchMovies, fetchVodCategories } from "@/lib/vod";
 import type { VodCategory, VodMovie } from "@/lib/vod";
+import { getProgress } from "@/lib/progress";
+import type { ProgressItem } from "@/lib/progress";
 
 function MoviePoster({ movie, onPress }: { movie: VodMovie; onPress: () => void }) {
   return (
@@ -69,6 +71,13 @@ export default function MoviesScreen() {
   const [categories, setCategories] = useState<VodCategory[]>([]);
   const [movies, setMovies] = useState<VodMovie[]>([]);
   const [loading, setLoading] = useState(true);
+  const [progress, setProgress] = useState<ProgressItem[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      getProgress().then(setProgress);
+    }, []),
+  );
 
   useEffect(() => {
     let alive = true;
@@ -184,6 +193,57 @@ export default function MoviesScreen() {
             }
           />
         )}
+        ListHeaderComponent={
+          progress.length > 0 ? (
+            <View style={styles.continueWrap}>
+              <Text style={styles.sectionTitle}>Continuar viendo</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.continueRow}
+              >
+                {progress.map((p) => (
+                  <Pressable
+                    key={p.id}
+                    style={styles.continueCard}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/watch/[id]",
+                        params: { id: p.id, title: p.name, poster: p.poster ?? undefined },
+                      })
+                    }
+                  >
+                    {p.poster ? (
+                      <Image
+                        source={{ uri: p.poster }}
+                        style={styles.continuePoster}
+                        contentFit="cover"
+                        transition={150}
+                      />
+                    ) : (
+                      <View style={[styles.continuePoster, styles.continueFallback]}>
+                        <Text style={styles.continueInitial}>{p.name.charAt(0)}</Text>
+                      </View>
+                    )}
+                    <View style={styles.progressTrack}>
+                      <View
+                        style={[
+                          styles.progressFill,
+                          {
+                            width: `${Math.min(100, (p.position / Math.max(1, p.duration)) * 100)}%`,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text style={styles.continueTitle} numberOfLines={1}>
+                      {p.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
           loading ? null : (
             <Text style={styles.empty}>No se encontraron películas.</Text>
@@ -308,5 +368,56 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingVertical: 24,
     fontFamily: fonts.regular,
+  },
+  continueWrap: {
+    marginBottom: 4,
+  },
+  sectionTitle: {
+    color: colors.textMuted,
+    fontSize: 14,
+    fontWeight: "600",
+    fontFamily: fonts.semibold,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  continueRow: {
+    gap: 10,
+  },
+  continueCard: {
+    width: 120,
+    gap: 5,
+  },
+  continuePoster: {
+    width: 120,
+    height: 72,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceRaised,
+  },
+  continueFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  continueInitial: {
+    color: colors.brand,
+    fontSize: 24,
+    fontWeight: "700",
+    fontFamily: fonts.bold,
+  },
+  progressTrack: {
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: colors.surfaceRaised,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: 3,
+    backgroundColor: colors.brand,
+  },
+  continueTitle: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: "600",
+    fontFamily: fonts.semibold,
   },
 });
