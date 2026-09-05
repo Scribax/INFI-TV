@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -8,16 +8,23 @@ import { flagEmoji } from "@/lib/flags";
 import { channelQuality } from "@/lib/quality";
 import type { ChannelItem } from "@/lib/types";
 
-export function ChannelCard({
+/**
+ * Card de canal memoizada: con grillas de miles de canales, cada re-render
+ * del padre re-renderizaba todas las celdas visibles. `memo` + callbacks
+ * estables (onPress recibe el id, la card crea la closure internamente)
+ * cortan ese costo. El logo sin transition evita el fade en cada aparición
+ * durante el scroll.
+ */
+export const ChannelCard = memo(function ChannelCard({
   channel,
   onPress,
   isFavorite = false,
   onToggleFavorite,
 }: {
   channel: ChannelItem;
-  onPress: () => void;
+  onPress: (id: string) => void;
   isFavorite?: boolean;
-  onToggleFavorite?: () => void;
+  onToggleFavorite?: (channel: ChannelItem) => void;
 }) {
   const [imgFailed, setImgFailed] = useState(false);
   const showLogo = channel.logoUrl !== null && !imgFailed;
@@ -26,14 +33,13 @@ export function ChannelCard({
   return (
     <Pressable
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-      onPress={onPress}
+      onPress={() => onPress(channel.id)}
     >
       {showLogo ? (
         <Image
           source={{ uri: channel.logoUrl as string }}
           style={styles.logo}
           contentFit="contain"
-          transition={200}
           onError={() => setImgFailed(true)}
         />
       ) : (
@@ -64,7 +70,11 @@ export function ChannelCard({
       )}
 
       {onToggleFavorite !== undefined && (
-        <Pressable style={styles.favButton} onPress={onToggleFavorite} hitSlop={8}>
+        <Pressable
+          style={styles.favButton}
+          onPress={() => onToggleFavorite(channel)}
+          hitSlop={8}
+        >
           <Star
             size={16}
             color={isFavorite ? colors.warn : colors.textFaint}
@@ -74,7 +84,7 @@ export function ChannelCard({
       )}
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: {

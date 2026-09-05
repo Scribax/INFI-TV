@@ -67,7 +67,7 @@ export default function HomeScreen() {
               <View key={h.channel.id} style={styles.historyItem}>
                 <ChannelCard
                   channel={h.channel}
-                  onPress={() => router.push(`/channel/${h.channel.id}`)}
+                  onPress={(id) => router.push(`/channel/${id}`)}
                 />
               </View>
             ))}

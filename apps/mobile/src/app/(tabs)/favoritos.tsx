@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { FlatList, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -6,11 +7,36 @@ import { ChannelCard } from "@/components/channel-card";
 import { ChannelSkeleton } from "@/components/channel-skeleton";
 import { EmptyState, ErrorState } from "@/components/states";
 import { colors } from "@/constants/theme";
+import type { ChannelItem } from "@/lib/types";
 
 export default function FavoritosScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { favorites, loading, error, toggle, reload } = useFavorites();
+
+  const openChannel = useCallback(
+    (id: string) => router.push(`/channel/${id}`),
+    [router],
+  );
+
+  const toggleFavorite = useCallback(
+    (channel: ChannelItem) => toggle(channel),
+    [toggle],
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: ChannelItem }) => (
+      <View style={styles.cell}>
+        <ChannelCard
+          channel={item}
+          onPress={openChannel}
+          isFavorite
+          onToggleFavorite={toggleFavorite}
+        />
+      </View>
+    ),
+    [openChannel, toggleFavorite],
+  );
 
   return (
     <View style={styles.container}>
@@ -31,16 +57,11 @@ export default function FavoritosScreen() {
           numColumns={3}
           columnWrapperStyle={styles.row}
           contentContainerStyle={[styles.list, { paddingBottom: 90 }]}
-          renderItem={({ item }) => (
-            <View style={styles.cell}>
-              <ChannelCard
-                channel={item}
-                onPress={() => router.push(`/channel/${item.id}`)}
-                isFavorite
-                onToggleFavorite={() => toggle(item)}
-              />
-            </View>
-          )}
+          renderItem={renderItem}
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          windowSize={7}
+          removeClippedSubviews
           ListEmptyComponent={
             <EmptyState
               title="Sin favoritos"

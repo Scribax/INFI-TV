@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -33,6 +33,20 @@ export default function BuscarScreen() {
       search: search === "" ? undefined : search,
     });
 
+  const openChannel = useCallback(
+    (id: string) => router.push(`/channel/${id}`),
+    [router],
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: ChannelItem }) => (
+      <View style={styles.cell}>
+        <ChannelCard channel={item} onPress={openChannel} />
+      </View>
+    ),
+    [openChannel],
+  );
+
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
@@ -63,14 +77,11 @@ export default function BuscarScreen() {
           numColumns={3}
           columnWrapperStyle={styles.gridRow}
           contentContainerStyle={styles.listContent}
-          renderItem={({ item }: { item: ChannelItem }) => (
-            <View style={styles.cell}>
-              <ChannelCard
-                channel={item}
-                onPress={() => router.push(`/channel/${item.id}`)}
-              />
-            </View>
-          )}
+          renderItem={renderItem}
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          windowSize={7}
+          removeClippedSubviews
           onEndReached={loadMore}
           onEndReachedThreshold={0.5}
           refreshing={refreshing}

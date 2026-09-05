@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -67,16 +67,19 @@ export default function CanalesScreen() {
       category,
     });
 
-  function renderItem({ item }: { item: ChannelItem }) {
-    return (
+  const openChannel = useCallback(
+    (id: string) => router.push(`/channel/${id}`),
+    [router],
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: ChannelItem }) => (
       <View style={styles.cell}>
-        <ChannelCard
-          channel={item}
-          onPress={() => router.push(`/channel/${item.id}`)}
-        />
+        <ChannelCard channel={item} onPress={openChannel} />
       </View>
-    );
-  }
+    ),
+    [openChannel],
+  );
 
   return (
     <View style={styles.container}>
@@ -147,6 +150,10 @@ export default function CanalesScreen() {
           columnWrapperStyle={styles.gridRow}
           contentContainerStyle={[styles.listContent, { paddingBottom: 90 }]}
           renderItem={renderItem}
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          windowSize={7}
+          removeClippedSubviews
           onEndReached={loadMore}
           onEndReachedThreshold={0.5}
           refreshing={refreshing}
