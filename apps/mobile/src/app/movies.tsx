@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   FlatList,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -12,31 +13,49 @@ import { Image } from "expo-image";
 import { ArrowLeft, Search } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts } from "@/constants/theme";
-import { posterUrl, searchMovies, trendingMovies, hasTmdbKey } from "@/lib/tmdb";
-import type { TmdbMovie } from "@/lib/tmdb";
+import { fetchMovies, fetchVodCategories } from "@/lib/vod";
+import type { VodCategory, VodMovie } from "@/lib/vod";
 
-function MoviePoster({ movie, onPress }: { movie: TmdbMovie; onPress: () => void }) {
-  const poster = posterUrl(movie.poster_path);
+function MoviePoster({ movie, onPress }: { movie: VodMovie; onPress: () => void }) {
   return (
     <Pressable
       style={({ pressed }) => [styles.poster, pressed && styles.posterPressed]}
       onPress={onPress}
     >
-      {poster !== null ? (
+      {movie.poster !== null ? (
         <Image
-          source={{ uri: poster }}
+          source={{ uri: movie.poster }}
           style={styles.posterImg}
           contentFit="cover"
           transition={150}
         />
       ) : (
         <View style={[styles.posterImg, styles.posterFallback]}>
-          <Text style={styles.posterInitial}>{movie.title.charAt(0)}</Text>
+          <Text style={styles.posterInitial}>{movie.name.charAt(0)}</Text>
         </View>
       )}
       <Text style={styles.posterTitle} numberOfLines={2}>
-        {movie.title}
+        {movie.name}
       </Text>
+    </Pressable>
+  );
+}
+
+function Chip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      style={[styles.chip, active && styles.chipActive]}
+      onPress={onPress}
+    >
+      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
     </Pressable>
   );
 }
@@ -45,15 +64,32 @@ export default function MoviesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState("");
-  const [movies, setMovies] = useState<TmdbMovie[]>([]);
+  const [category, setCategory] = useState<string | undefined>(undefined);
+  const [categories, setCategories] = useState<VodCategory[]>([]);
+  const [movies, setMovies] = useState<VodMovie[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
+    fetchVodCategories()
+      .then((c) => {
+        if (alive) setCategories(c.filter((x) => x.category_name.trim() !== ""));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
     setLoading(true);
-    searchMovies(query)
+    fetchMovies({ category, search: query, limit: 60 })
       .then((r) => {
         if (alive) setMovies(r);
+      })
+      .catch(() => {
+        if (alive) setMovies([]);
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -61,7 +97,7 @@ export default function MoviesScreen() {
     return () => {
       alive = false;
     };
-  }, [query]);
+  }, [query, category]);
 
   return (
     <View style={styles.container}>
@@ -84,16 +120,31 @@ export default function MoviesScreen() {
         />
       </View>
 
-      {!hasTmdbKey() && (
-        <Text style={styles.banner}>
-          Sin API key de TMDB → mostrando títulos de prueba. Configurá
-          EXPO_PUBLIC_TMDB_API_KEY para el catálogo completo.
-        </Text>
-      )}
+      <View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipsRow}
+        >
+          <Chip
+            label="Todas"
+            active={category === undefined}
+            onPress={() => setCategory(undefined)}
+          />
+          {categories.map((c) => (
+            <Chip
+              key={c.category_id}
+              label={c.category_name}
+              active={category === c.category_id}
+              onPress={() => setCategory(c.category_id)}
+            />
+          ))}
+        </ScrollView>
+      </View>
 
       <FlatList
         data={movies}
-        keyExtractor={(m) => String(m.id)}
+        keyExtractor={(m) => m.id}
         numColumns={3}
         columnWrapperStyle={styles.gridRow}
         contentContainerStyle={styles.listContent}
@@ -101,7 +152,10 @@ export default function MoviesScreen() {
           <MoviePoster
             movie={item}
             onPress={() =>
-              router.push({ pathname: "/movie/[id]", params: { id: String(item.id), title: item.title } })
+              router.push({
+                pathname: "/movie/[id]",
+                params: { id: item.id, title: item.name },
+              })
             }
           />
         )}
@@ -147,6 +201,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     margin: 12,
+    marginBottom: 8,
     paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: 1,
@@ -160,17 +215,31 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: fonts.regular,
   },
-  banner: {
-    marginHorizontal: 12,
-    marginBottom: 4,
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: colors.surfaceRaised,
+  chipsRow: {
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+    gap: 8,
+  },
+  chip: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  chipActive: {
+    borderColor: colors.brand,
+    backgroundColor: colors.brand,
+  },
+  chipText: {
     color: colors.textMuted,
-    fontSize: 11,
-    fontFamily: fonts.regular,
+    fontSize: 13,
+    fontWeight: "600",
+    fontFamily: fonts.semibold,
+  },
+  chipTextActive: {
+    color: "#FFFFFF",
   },
   gridRow: {
     gap: 10,

@@ -18,8 +18,8 @@ import { useHistory } from "@/hooks/use-me";
 import { ChannelCard } from "@/components/channel-card";
 import { colors, fonts } from "@/constants/theme";
 import { flagEmoji } from "@/lib/flags";
-import { posterUrl, trendingMovies } from "@/lib/tmdb";
-import type { TmdbMovie } from "@/lib/tmdb";
+import { fetchMovies } from "@/lib/vod";
+import type { VodMovie } from "@/lib/vod";
 
 const QUICK_COUNTRIES = [
   { code: "AR", label: "Argentina" },
@@ -43,13 +43,15 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { history } = useHistory();
-  const [featured, setFeatured] = useState<TmdbMovie[]>([]);
+  const [featured, setFeatured] = useState<VodMovie[]>([]);
 
   useEffect(() => {
     let alive = true;
-    trendingMovies().then((m) => {
-      if (alive) setFeatured(m.slice(0, 10));
-    });
+    fetchMovies({ limit: 10 })
+      .then((m) => {
+        if (alive) setFeatured(m);
+      })
+      .catch(() => {});
     return () => {
       alive = false;
     };
@@ -92,24 +94,24 @@ export default function HomeScreen() {
                 onPress={() =>
                   router.push({
                     pathname: "/movie/[id]",
-                    params: { id: String(m.id), title: m.title },
+                    params: { id: m.id, title: m.name },
                   })
                 }
               >
-                {posterUrl(m.poster_path) !== null ? (
+                {m.poster !== null ? (
                   <Image
-                    source={{ uri: posterUrl(m.poster_path) as string }}
+                    source={{ uri: m.poster as string }}
                     style={styles.featuredPoster}
                     contentFit="cover"
                     transition={150}
                   />
                 ) : (
                   <View style={[styles.featuredPoster, styles.featuredFallback]}>
-                    <Text style={styles.featuredInitial}>{m.title.charAt(0)}</Text>
+                    <Text style={styles.featuredInitial}>{m.name.charAt(0)}</Text>
                   </View>
                 )}
                 <Text style={styles.featuredTitle} numberOfLines={1}>
-                  {m.title}
+                  {m.name}
                 </Text>
               </Pressable>
             ))}
