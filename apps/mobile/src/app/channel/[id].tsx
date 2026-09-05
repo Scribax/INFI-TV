@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Image,
   Pressable,
@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { ArrowLeft, Star } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -35,17 +35,6 @@ function Player({ uri }: { uri: string }) {
     p.loop = false;
     p.play();
   });
-
-  // Pausa al perder el foco (ej. navegar a otro canal) para no seguir
-  // sonando de fondo; reanuda al volver a esta pantalla.
-  useFocusEffect(
-    useCallback(() => {
-      player.play();
-      return () => {
-        player.pause();
-      };
-    }, [player]),
-  );
 
   return (
     <VideoView
@@ -126,13 +115,8 @@ function EpgSection({ programs }: { programs: EpgProgramItem[] }) {
 }
 
 /** Canales del mismo país (o categoría) como sugerencia. */
-function RelatedChannels({
-  channel,
-  onOpen,
-}: {
-  channel: ChannelItem;
-  onOpen: (id: string) => void;
-}) {
+function RelatedChannels({ channel }: { channel: ChannelItem }) {
+  const router = useRouter();
   const { items } = useChannels(
     channel.countryCode !== null
       ? { country: channel.countryCode }
@@ -152,7 +136,10 @@ function RelatedChannels({
       >
         {related.map((c) => (
           <View key={c.id} style={styles.relatedItem}>
-            <ChannelCard channel={c} onPress={onOpen} />
+            <ChannelCard
+              channel={c}
+              onPress={(cid) => router.replace(`/channel/${cid}`)}
+            />
           </View>
         ))}
       </ScrollView>
@@ -211,11 +198,6 @@ export default function ChannelScreen() {
       clearInterval(t);
     };
   }, []);
-
-  const openChannel = useCallback(
-    (cid: string) => router.push(`/channel/${cid}`),
-    [router],
-  );
 
   const fav = channel !== null && isFavorite(id);
   const blocked = accountStatus !== null && accountStatus !== "ACTIVE";
@@ -316,7 +298,7 @@ export default function ChannelScreen() {
 
           {programs.length > 0 && <EpgSection programs={programs} />}
 
-          <RelatedChannels channel={channel} onOpen={openChannel} />
+          <RelatedChannels channel={channel} />
         </ScrollView>
       )}
     </View>

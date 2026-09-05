@@ -6,7 +6,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { ArrowLeft } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -36,16 +36,6 @@ function VideoPlayer({
     });
     return () => sub.remove();
   }, [player, onPosition]);
-
-  // Pausa al perder el foco para no reproducir de fondo.
-  useFocusEffect(
-    useCallback(() => {
-      player.play();
-      return () => {
-        player.pause();
-      };
-    }, [player]),
-  );
 
   return <VideoView player={player} style={styles.video} nativeControls />;
 }
