@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { colors } from "@/constants/theme";
+import { AlertTriangle, Inbox } from "lucide-react-native";
+import { colors, fonts } from "@/constants/theme";
 
 export function EmptyState({
   title,
@@ -10,7 +11,9 @@ export function EmptyState({
 }) {
   return (
     <View style={styles.container}>
-      <Text style={styles.emoji}>📭</Text>
+      <View style={styles.iconCircle}>
+        <Inbox size={26} color={colors.textFaint} />
+      </View>
       <Text style={styles.title}>{title}</Text>
       {hint !== undefined && <Text style={styles.hint}>{hint}</Text>}
     </View>
@@ -26,7 +29,9 @@ export function ErrorState({
 }) {
   return (
     <View style={styles.container}>
-      <Text style={styles.emoji}>⚠️</Text>
+      <View style={styles.iconCircle}>
+        <AlertTriangle size={26} color={colors.warn} />
+      </View>
       <Text style={styles.title}>{message}</Text>
       {onRetry !== undefined && (
         <Pressable style={styles.button} onPress={onRetry}>
@@ -45,13 +50,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     gap: 8,
   },
-  emoji: {
-    fontSize: 32,
+  iconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 4,
   },
   title: {
     color: colors.text,
     fontSize: 15,
     fontWeight: "600",
+    fontFamily: fonts.semibold,
     textAlign: "center",
   },
   hint: {
@@ -70,5 +84,6 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "600",
+    fontFamily: fonts.semibold,
   },
 });

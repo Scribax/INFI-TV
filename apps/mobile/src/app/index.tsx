@@ -23,7 +23,7 @@ export default function ActivateScreen() {
     let alive = true;
     validateSession().then((valid) => {
       if (!alive) return;
-      if (valid) router.replace("/(tabs)/");
+      if (valid) router.replace("/(tabs)");
       else setChecking(false);
     });
     return () => {
@@ -41,7 +41,7 @@ export default function ActivateScreen() {
     setError(null);
     try {
       await activate(normalized);
-      router.replace("/(tabs)/");
+      router.replace("/(tabs)");
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo activar.");
     } finally {

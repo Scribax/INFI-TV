@@ -1,5 +1,14 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
+import {
+  Clapperboard,
+  Film,
+  Globe,
+  Music,
+  Newspaper,
+  Trophy,
+  type LucideIcon,
+} from "lucide-react-native";
 import { APP_NAME } from "@infitv/config";
 import { useHistory } from "@/hooks/use-me";
 import { ChannelCard } from "@/components/channel-card";
@@ -15,13 +24,13 @@ const QUICK_COUNTRIES = [
   { code: "BR", label: "Brasil" },
 ];
 
-const QUICK_CATEGORIES = [
-  { slug: "news", label: "Noticias", emoji: "📰" },
-  { slug: "sports", label: "Deportes", emoji: "⚽" },
-  { slug: "entertainment", label: "Entretenimiento", emoji: "🎬" },
-  { slug: "movies", label: "Películas", emoji: "🎥" },
-  { slug: "music", label: "Música", emoji: "🎵" },
-  { slug: "general", label: "General", emoji: "🌎" },
+const QUICK_CATEGORIES: { slug: string; label: string; icon: LucideIcon }[] = [
+  { slug: "news", label: "Noticias", icon: Newspaper },
+  { slug: "sports", label: "Deportes", icon: Trophy },
+  { slug: "entertainment", label: "Entretenimiento", icon: Clapperboard },
+  { slug: "movies", label: "Películas", icon: Film },
+  { slug: "music", label: "Música", icon: Music },
+  { slug: "general", label: "General", icon: Globe },
 ];
 
 export default function HomeScreen() {
@@ -78,7 +87,7 @@ export default function HomeScreen() {
               router.push({ pathname: "/canales", params: { category: c.slug } })
             }
           >
-            <Text style={styles.tileEmoji}>{c.emoji}</Text>
+            <c.icon size={24} color={colors.brand} />
             <Text style={styles.tileLabel}>{c.label}</Text>
           </Pressable>
         ))}

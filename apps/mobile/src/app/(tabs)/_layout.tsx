@@ -1,9 +1,24 @@
-import { Text } from "react-native";
+import { StyleSheet, type ColorValue } from "react-native";
 import { Tabs } from "expo-router";
-import { colors } from "@/constants/theme";
+import { BlurView } from "expo-blur";
+import {
+  Home,
+  Tv,
+  Star,
+  Search,
+  MoreHorizontal,
+  type LucideIcon,
+} from "lucide-react-native";
+import { colors, fonts } from "@/constants/theme";
 
-function TabIcon({ emoji }: { emoji: string }) {
-  return <Text style={{ fontSize: 18 }}>{emoji}</Text>;
+function TabIcon({
+  icon: Icon,
+  color,
+}: {
+  icon: LucideIcon;
+  color: ColorValue;
+}) {
+  return <Icon size={21} color={color as string} strokeWidth={2} />;
 }
 
 export default function TabsLayout() {
@@ -14,31 +29,44 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.brand,
         tabBarInactiveTintColor: colors.textFaint,
         tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
+          position: "absolute",
+          borderTopColor: "transparent",
+          backgroundColor: "transparent",
+          elevation: 0,
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
+        tabBarBackground: () => (
+          <BlurView
+            tint="dark"
+            intensity={70}
+            style={StyleSheet.absoluteFill}
+          />
+        ),
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: "600",
+          fontFamily: fonts.semibold,
+        },
       }}
     >
       <Tabs.Screen
         name="index"
-        options={{ title: "Inicio", tabBarIcon: () => <TabIcon emoji="🏠" /> }}
+        options={{ title: "Inicio", tabBarIcon: ({ color }) => <TabIcon icon={Home} color={color} /> }}
       />
       <Tabs.Screen
         name="canales"
-        options={{ title: "Canales", tabBarIcon: () => <TabIcon emoji="📺" /> }}
+        options={{ title: "Canales", tabBarIcon: ({ color }) => <TabIcon icon={Tv} color={color} /> }}
       />
       <Tabs.Screen
         name="favoritos"
-        options={{ title: "Favoritos", tabBarIcon: () => <TabIcon emoji="⭐" /> }}
+        options={{ title: "Favoritos", tabBarIcon: ({ color }) => <TabIcon icon={Star} color={color} /> }}
       />
       <Tabs.Screen
         name="buscar"
-        options={{ title: "Buscar", tabBarIcon: () => <TabIcon emoji="🔎" /> }}
+        options={{ title: "Buscar", tabBarIcon: ({ color }) => <TabIcon icon={Search} color={color} /> }}
       />
       <Tabs.Screen
         name="mas"
-        options={{ title: "Más", tabBarIcon: () => <TabIcon emoji="⋯" /> }}
+        options={{ title: "Más", tabBarIcon: ({ color }) => <TabIcon icon={MoreHorizontal} color={color} /> }}
       />
     </Tabs>
   );

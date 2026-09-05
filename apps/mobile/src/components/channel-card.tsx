@@ -1,7 +1,11 @@
 import { useState } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
-import { colors } from "@/constants/theme";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import { Star } from "lucide-react-native";
+import { colors, fonts } from "@/constants/theme";
 import { flagEmoji } from "@/lib/flags";
+import { channelQuality } from "@/lib/quality";
 import type { ChannelItem } from "@/lib/types";
 
 export function ChannelCard({
@@ -17,6 +21,7 @@ export function ChannelCard({
 }) {
   const [imgFailed, setImgFailed] = useState(false);
   const showLogo = channel.logoUrl !== null && !imgFailed;
+  const quality = channelQuality(channel.name);
 
   return (
     <Pressable
@@ -27,26 +32,44 @@ export function ChannelCard({
         <Image
           source={{ uri: channel.logoUrl as string }}
           style={styles.logo}
-          resizeMode="contain"
+          contentFit="contain"
+          transition={200}
           onError={() => setImgFailed(true)}
         />
       ) : (
-        <View style={[styles.logo, styles.logoFallback]}>
+        <LinearGradient
+          colors={[colors.surfaceRaised, "#232E4A"]}
+          style={[styles.logo, styles.logoFallback]}
+        >
           <Text style={styles.logoInitial}>
             {channel.name.charAt(0).toUpperCase()}
           </Text>
+        </LinearGradient>
+      )}
+
+      {quality !== null && (
+        <View style={[styles.badge, { backgroundColor: quality.bg }]}>
+          <Text style={[styles.badgeText, { color: quality.color }]}>
+            {quality.label}
+          </Text>
         </View>
       )}
+
       <Text style={styles.name} numberOfLines={2}>
         {channel.name}
       </Text>
+
       {channel.countryCode !== null && (
         <Text style={styles.flag}>{flagEmoji(channel.countryCode)}</Text>
       )}
 
       {onToggleFavorite !== undefined && (
         <Pressable style={styles.favButton} onPress={onToggleFavorite} hitSlop={8}>
-          <Text style={styles.favIcon}>{isFavorite ? "⭐" : "☆"}</Text>
+          <Star
+            size={16}
+            color={isFavorite ? colors.warn : colors.textFaint}
+            fill={isFavorite ? colors.warn : "none"}
+          />
         </Pressable>
       )}
     </Pressable>
@@ -74,7 +97,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   logoFallback: {
-    backgroundColor: colors.surfaceRaised,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -82,11 +104,27 @@ const styles = StyleSheet.create({
     color: colors.brand,
     fontSize: 20,
     fontWeight: "700",
+    fontFamily: fonts.bold,
+  },
+  badge: {
+    position: "absolute",
+    top: 6,
+    left: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  badgeText: {
+    fontSize: 9,
+    fontWeight: "700",
+    fontFamily: fonts.bold,
+    letterSpacing: 0.4,
   },
   name: {
     color: colors.text,
     fontSize: 12,
     fontWeight: "600",
+    fontFamily: fonts.semibold,
     textAlign: "center",
     minHeight: 30,
   },
@@ -98,8 +136,5 @@ const styles = StyleSheet.create({
     top: 6,
     right: 6,
     padding: 2,
-  },
-  favIcon: {
-    fontSize: 16,
   },
 });
