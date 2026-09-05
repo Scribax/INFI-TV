@@ -2,6 +2,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import {
   Clapperboard,
+  ChevronRight,
   Film,
   Globe,
   Music,
@@ -12,7 +13,7 @@ import {
 import { APP_NAME } from "@infitv/config";
 import { useHistory } from "@/hooks/use-me";
 import { ChannelCard } from "@/components/channel-card";
-import { colors } from "@/constants/theme";
+import { colors, fonts } from "@/constants/theme";
 import { flagEmoji } from "@/lib/flags";
 
 const QUICK_COUNTRIES = [
@@ -40,6 +41,21 @@ export default function HomeScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.brand}>{APP_NAME}</Text>
+
+      <Text style={styles.sectionTitle}>Películas y series</Text>
+      <Pressable
+        style={({ pressed }) => [styles.vodCard, pressed && styles.tilePressed]}
+        onPress={() => router.push("/movies")}
+      >
+        <View style={styles.vodIcon}>
+          <Film size={22} color={colors.brand} />
+        </View>
+        <View style={styles.vodTextWrap}>
+          <Text style={styles.vodTitle}>Películas</Text>
+          <Text style={styles.vodSub}>Buscá y mirá al instante</Text>
+        </View>
+        <ChevronRight size={20} color={colors.textFaint} />
+      </Pressable>
 
       {history.length > 0 && (
         <>
@@ -109,6 +125,38 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 24,
     fontWeight: "700",
+  },
+  vodCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  vodIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceRaised,
+  },
+  vodTextWrap: {
+    flex: 1,
+  },
+  vodTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "700",
+    fontFamily: fonts.bold,
+  },
+  vodSub: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontFamily: fonts.regular,
   },
   sectionTitle: {
     color: colors.textMuted,
