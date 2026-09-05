@@ -55,7 +55,11 @@ export class ChannelsService {
   constructor(private readonly prisma: PrismaService) {}
 
   private buildWhere(q: ChannelsQueryDto): Prisma.ChannelWhereInput {
-    const where: Prisma.ChannelWhereInput = { isActive: true, isHidden: false };
+    const where: Prisma.ChannelWhereInput = {
+      isActive: true,
+      isHidden: false,
+      streamStatus: { not: "OFFLINE" },
+    };
     if (q.country !== undefined && q.country.trim() !== "") {
       where.countryCode = q.country.trim().toUpperCase();
     }
