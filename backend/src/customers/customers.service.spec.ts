@@ -24,6 +24,7 @@ function makeCustomer(overrides: Partial<Customer> = {}): Customer {
     expiresAt: new Date("2026-10-01T00:00:00.000Z"),
     lastSeenAt: null,
     notes: null,
+    suspensionReason: null,
     createdAt: new Date("2026-09-01T00:00:00.000Z"),
     updatedAt: new Date("2026-09-01T00:00:00.000Z"),
     ...overrides,

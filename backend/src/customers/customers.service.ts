@@ -59,6 +59,7 @@ const LIST_SELECT = {
   expiresAt: true,
   lastSeenAt: true,
   notes: true,
+  suspensionReason: true,
   createdAt: true,
   updatedAt: true,
   plan: { select: PLAN_SELECT },
@@ -202,7 +203,7 @@ export class CustomersService {
     }
     const updated = await this.prisma.customer.update({
       where: { id },
-      data: { status: "SUSPENDED" },
+      data: { status: "SUSPENDED", suspensionReason: dto.reason ?? null },
       select: LIST_SELECT,
     });
     await this.audit.log({
@@ -231,7 +232,7 @@ export class CustomersService {
     }
     const updated = await this.prisma.customer.update({
       where: { id },
-      data: { status: "ACTIVE" },
+      data: { status: "ACTIVE", suspensionReason: null },
       select: LIST_SELECT,
     });
     await this.audit.log({

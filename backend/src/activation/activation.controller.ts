@@ -52,6 +52,15 @@ export class ActivationController {
     return identity;
   }
 
+  @Get("status")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Estado de la cuenta para polling en vivo (no corta con 403)" })
+  status(@Req() req: Request): Promise<unknown> {
+    const auth = req.headers.authorization ?? "";
+    const bearer = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+    return this.activation.getAccountStatus(bearer);
+  }
+
   @Post("logout")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Revoca la sesión (idempotente)" })

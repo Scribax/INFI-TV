@@ -17,6 +17,17 @@ import { colors } from "@/constants/theme";
 import { flagEmoji } from "@/lib/flags";
 import type { ChannelItem, EpgProgramItem } from "@/lib/types";
 
+type AccountStatus = {
+  status: "ACTIVE" | "SUSPENDED" | "EXPIRED" | "DEVICE_REVOKED";
+  suspensionReason: string | null;
+  expiresAt: string | null;
+  plan: string;
+  displayName: string;
+};
+
+/** Frecuencia de chequeo del estado de la cuenta mientras se reproduce. */
+const POLL_MS = 20_000;
+
 function Player({ uri }: { uri: string }) {
   const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
@@ -29,6 +40,38 @@ function Player({ uri }: { uri: string }) {
       contentFit="contain"
       nativeControls
     />
+  );
+}
+
+function SuspendedOverlay({
+  status,
+  reason,
+  onBack,
+}: {
+  status: AccountStatus["status"];
+  reason: string | null;
+  onBack: () => void;
+}) {
+  const title =
+    status === "EXPIRED"
+      ? "SUSCRIPCIÓN VENCIDA"
+      : status === "DEVICE_REVOKED"
+        ? "DISPOSITIVO DESVINCULADO"
+        : "CUENTA SUSPENDIDA";
+  return (
+    <View style={styles.suspended}>
+      <Text style={styles.suspendedIcon}>⛔</Text>
+      <Text style={styles.suspendedTitle}>{title}</Text>
+      {reason !== null && reason !== "" && (
+        <Text style={styles.suspendedReason}>Motivo: {reason}</Text>
+      )}
+      <Text style={styles.suspendedHint}>
+        Contactá al administrador para más información.
+      </Text>
+      <Pressable style={styles.suspendedButton} onPress={onBack}>
+        <Text style={styles.suspendedButtonText}>Volver</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -76,6 +119,8 @@ export default function ChannelScreen() {
   const [channel, setChannel] = useState<ChannelItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [imgFailed, setImgFailed] = useState(false);
+  const [accountStatus, setAccountStatus] = useState<AccountStatus["status"] | null>(null);
+  const [suspensionReason, setSuspensionReason] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,7 +140,30 @@ export default function ChannelScreen() {
     };
   }, [id]);
 
+  // Polling del estado de la cuenta: si el admin suspende mientras el cliente
+  // mira un canal en vivo, en <20s se corta y aparece "CUENTA SUSPENDIDA".
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const acc = await api.get<AccountStatus>("/auth/status");
+        if (cancelled) return;
+        setAccountStatus(acc.status);
+        setSuspensionReason(acc.suspensionReason);
+      } catch {
+        // 401 (sesión muerta) u otro fallo de red: no interrumpir la reproducción
+      }
+    };
+    void check();
+    const t = setInterval(() => void check(), POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, []);
+
   const fav = channel !== null && isFavorite(id);
+  const blocked = accountStatus !== null && accountStatus !== "ACTIVE";
 
   return (
     <View style={styles.container}>
@@ -103,7 +171,7 @@ export default function ChannelScreen() {
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Text style={styles.back}>‹ Volver</Text>
         </Pressable>
-        {channel !== null && (
+        {channel !== null && !blocked && (
           <Pressable onPress={() => toggle(channel)} hitSlop={8}>
             <Text style={styles.fav}>{fav ? "⭐" : "☆"}</Text>
           </Pressable>
@@ -118,6 +186,12 @@ export default function ChannelScreen() {
         <View style={styles.center}>
           <Text style={styles.muted}>Canal no disponible.</Text>
         </View>
+      ) : blocked ? (
+        <SuspendedOverlay
+          status={accountStatus as AccountStatus["status"]}
+          reason={suspensionReason}
+          onBack={() => router.back()}
+        />
       ) : (
         <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
           <Player uri={channel.streamUrl} />
@@ -272,5 +346,45 @@ const styles = StyleSheet.create({
   muted: {
     color: colors.textFaint,
     fontSize: 14,
+  },
+  suspended: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 32,
+    gap: 12,
+    backgroundColor: colors.background,
+  },
+  suspendedIcon: {
+    fontSize: 52,
+  },
+  suspendedTitle: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  suspendedReason: {
+    color: colors.textMuted,
+    fontSize: 16,
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  suspendedHint: {
+    color: colors.textFaint,
+    fontSize: 13,
+    textAlign: "center",
+  },
+  suspendedButton: {
+    marginTop: 12,
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: colors.brand,
+  },
+  suspendedButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
   },
 });

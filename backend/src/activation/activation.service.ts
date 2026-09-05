@@ -268,9 +268,12 @@ export class ActivationService {
     }
     const { customer, device } = session;
     if (customer.status === "SUSPENDED") {
+      const reason = customer.suspensionReason ?? null;
       throw apiError(
         "CODE_SUSPENDED",
-        "Tu acceso fue suspendido. Contactá al administrador.",
+        reason === null
+          ? "Tu acceso fue suspendido. Contactá al administrador."
+          : `Tu acceso fue suspendido. Motivo: ${reason}`,
         HttpStatus.FORBIDDEN,
       );
     }
@@ -305,6 +308,47 @@ export class ActivationService {
       },
       deviceStatus: device.status,
     };
+  }
+
+  /**
+   * Estado de la cuenta para polling en vivo. A diferencia de validateSession,
+   * NO corta con 403: devuelve el estado (ACTIVE/SUSPENDED/EXPIRED/DEVICE_REVOKED)
+   * para que la app pueda mostrar el motivo de suspensión en plena reproducción.
+   */
+  async getAccountStatus(bearer: string): Promise<unknown> {
+    const now = new Date();
+    const session = await this.prisma.session.findUnique({
+      where: { tokenHash: hashSessionToken(bearer) },
+      include: { customer: { include: { plan: true } }, device: true },
+    });
+    if (
+      session === null ||
+      session.status !== "ACTIVE" ||
+      session.expiresAt.getTime() <= now.getTime()
+    ) {
+      throw apiError(
+        "SESSION_EXPIRED",
+        "Sesión inválida o expirada.",
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+    const { customer, device } = session;
+    const base = {
+      suspensionReason: customer.suspensionReason ?? null,
+      expiresAt: customer.expiresAt?.toISOString() ?? null,
+      plan: customer.plan?.name ?? "—",
+      displayName: customer.displayName,
+    };
+    if (customer.status === "SUSPENDED") {
+      return { ...base, status: "SUSPENDED" as const };
+    }
+    if (!isEffectivelyActive(customer, now)) {
+      return { ...base, status: "EXPIRED" as const };
+    }
+    if (device.status !== "ACTIVE") {
+      return { ...base, status: "DEVICE_REVOKED" as const };
+    }
+    return { ...base, status: "ACTIVE" as const };
   }
 
   /** Idempotente: revoca si existe y está activa, siempre responde igual. */
