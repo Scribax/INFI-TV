@@ -34,8 +34,16 @@ export class IptvSyncService {
     private readonly audit: AuditService,
   ) {}
 
-  private sourceUrl(): string {
-    return this.config.get<string>("IPTV_SOURCE_URL") ?? DEFAULT_SOURCE;
+  private sourceUrls(): string[] {
+    const main = this.config.get<string>("IPTV_SOURCE_URL") ?? DEFAULT_SOURCE;
+    const extra = this.config.get<string>("IPTV_EXTRA_SOURCES") ?? "";
+    return [
+      main,
+      ...extra
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0),
+    ];
   }
 
   private async fetchSource(url: string): Promise<string> {
@@ -48,9 +56,20 @@ export class IptvSyncService {
 
   async sync(actor?: AdminIdentity, ip?: string): Promise<SyncResult> {
     const started = Date.now();
-    const url = this.sourceUrl();
-    const content = await this.fetchSource(url);
-    const parsed = dedupeChannels(parseM3u(content));
+    const urls = this.sourceUrls();
+    const collected: ReturnType<typeof parseM3u>[number][] = [];
+    for (const url of urls) {
+      try {
+        const content = await this.fetchSource(url);
+        collected.push(...parseM3u(content));
+      } catch (e) {
+        this.logger.warn(`Fuente IPTV saltada (${url}): ${(e as Error).message}`);
+      }
+    }
+    if (collected.length === 0) {
+      throw new Error("Ninguna fuente IPTV disponible.");
+    }
+    const parsed = dedupeChannels(collected);
 
     // 1) Países
     const countryCodes = new Set<string>();
@@ -137,7 +156,7 @@ export class IptvSyncService {
     }
 
     return {
-      source: url,
+      source: urls.join(", "),
       parsed: parsed.length,
       channels: upserted,
       countries: countryCodes.size,
