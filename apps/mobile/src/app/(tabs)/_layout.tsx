@@ -1,6 +1,7 @@
 import { StyleSheet, type ColorValue } from "react-native";
 import { Tabs } from "expo-router";
 import { BlurView } from "expo-blur";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Home,
   Tv,
@@ -22,6 +23,7 @@ function TabIcon({
 }
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
@@ -33,6 +35,9 @@ export default function TabsLayout() {
           borderTopColor: "transparent",
           backgroundColor: "transparent",
           elevation: 0,
+          height: 56 + insets.bottom,
+          paddingBottom: insets.bottom,
+          paddingTop: 6,
         },
         tabBarBackground: () => (
           <BlurView

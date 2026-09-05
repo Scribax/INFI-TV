@@ -1,11 +1,13 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { APP_NAME } from "@infitv/config";
 import { logout } from "@/lib/activation";
 import { colors } from "@/constants/theme";
 
 export default function MasScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   async function onLogout() {
     await logout();
@@ -14,7 +16,7 @@ export default function MasScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.title}>Más</Text>
       </View>
       <View style={styles.card}>

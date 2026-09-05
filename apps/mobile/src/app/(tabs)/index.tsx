@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   Clapperboard,
   Film,
@@ -44,7 +45,15 @@ export default function HomeScreen() {
       style={styles.container}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}
     >
-      <Text style={styles.brand}>{APP_NAME}</Text>
+      <LinearGradient
+        colors={["#6A5BE8", colors.background]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.hero}
+      >
+        <Text style={styles.brand}>{APP_NAME}</Text>
+        <Text style={styles.tagline}>TV en vivo · +9.000 canales del mundo</Text>
+      </LinearGradient>
 
       {history.length > 0 && (
         <>
@@ -110,10 +119,22 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 16,
   },
+  hero: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 4,
+  },
   brand: {
-    color: colors.text,
-    fontSize: 24,
+    color: "#FFFFFF",
+    fontSize: 26,
     fontWeight: "700",
+    fontFamily: fonts.bold,
+  },
+  tagline: {
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 13,
+    fontFamily: fonts.regular,
+    marginTop: 4,
   },
   vodCard: {
     flexDirection: "row",

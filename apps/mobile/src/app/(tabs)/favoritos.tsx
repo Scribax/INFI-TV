@@ -1,5 +1,6 @@
 import { FlatList, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFavorites } from "@/hooks/use-me";
 import { ChannelCard } from "@/components/channel-card";
 import { ChannelSkeleton } from "@/components/channel-skeleton";
@@ -8,11 +9,12 @@ import { colors } from "@/constants/theme";
 
 export default function FavoritosScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { favorites, loading, error, toggle, reload } = useFavorites();
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.title}>Favoritos</Text>
       </View>
 
@@ -28,7 +30,7 @@ export default function FavoritosScreen() {
           keyExtractor={(c) => c.id}
           numColumns={3}
           columnWrapperStyle={styles.row}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: 90 }]}
           renderItem={({ item }) => (
             <View style={styles.cell}>
               <ChannelCard

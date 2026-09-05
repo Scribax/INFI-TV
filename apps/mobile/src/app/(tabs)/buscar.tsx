@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SEARCH_DEBOUNCE_MS } from "@infitv/config";
 import { useChannels } from "@/hooks/use-channels";
 import { ChannelCard } from "@/components/channel-card";
@@ -18,6 +19,7 @@ import type { ChannelItem } from "@/lib/types";
 
 export default function BuscarScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [input, setInput] = useState("");
   const [search, setSearch] = useState("");
 
@@ -33,7 +35,7 @@ export default function BuscarScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.title}>Buscar</Text>
         <TextInput
           style={styles.input}

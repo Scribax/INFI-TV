@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useChannels } from "@/hooks/use-channels";
 import { useCategories, useCountries } from "@/hooks/use-catalog";
 import { ChannelCard } from "@/components/channel-card";
@@ -41,6 +42,7 @@ function Chip({
 
 export default function CanalesScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ country?: string; category?: string }>();
   // Los params de navegación (home → /canales?country=CL) son la fuente de
   // verdad. Si la tab ya estaba montada, el useState inicial no vería el param
@@ -78,7 +80,7 @@ export default function CanalesScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.title}>Canales</Text>
       </View>
 
@@ -143,7 +145,7 @@ export default function CanalesScreen() {
           keyExtractor={(c) => c.id}
           numColumns={3}
           columnWrapperStyle={styles.gridRow}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: 90 }]}
           renderItem={renderItem}
           onEndReached={loadMore}
           onEndReachedThreshold={0.5}
