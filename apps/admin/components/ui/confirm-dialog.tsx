@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Spinner } from "./spinner";
 
 export function ConfirmDialog({
@@ -8,6 +9,7 @@ export function ConfirmDialog({
   message,
   confirmLabel = "Confirmar",
   busy = false,
+  children,
   onConfirm,
   onCancel,
 }: {
@@ -16,6 +18,7 @@ export function ConfirmDialog({
   message: string;
   confirmLabel?: string;
   busy?: boolean;
+  children?: ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -35,6 +38,7 @@ export function ConfirmDialog({
         <div className="px-5 py-4">
           <h3 className="text-base font-semibold text-ink">{title}</h3>
           <p className="mt-2 text-sm text-ink-muted">{message}</p>
+          {children}
         </div>
         <div className="flex justify-end gap-2 border-t border-line px-5 py-4">
           <button type="button" className="btn-ghost" onClick={onCancel} disabled={busy}>

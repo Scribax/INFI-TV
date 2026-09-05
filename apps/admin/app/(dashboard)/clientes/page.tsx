@@ -296,6 +296,7 @@ export default function ClientesPage() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [renewing, setRenewing] = useState<CustomerListItem | null>(null);
   const [suspending, setSuspending] = useState<CustomerListItem | null>(null);
+  const [suspendReason, setSuspendReason] = useState("");
   const [deleting, setDeleting] = useState<CustomerListItem | null>(null);
 
   const qc = useQueryClient();
@@ -339,10 +340,12 @@ export default function ClientesPage() {
     onError,
   });
   const suspendMut = useMutation({
-    mutationFn: (id: string) => api.post(`/admin/customers/${id}/suspend`, {}),
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      api.post(`/admin/customers/${id}/suspend`, { reason: reason.trim() || undefined }),
     onSuccess: () => {
       onSuccess("Cliente suspendido.");
       setSuspending(null);
+      setSuspendReason("");
     },
     onError,
   });
@@ -579,9 +582,22 @@ export default function ClientesPage() {
         message={`¿Suspender el acceso de "${suspending?.displayName}"? Podrás reactivarlo cuando quieras.`}
         confirmLabel="Suspender"
         busy={suspendMut.isPending}
-        onConfirm={() => suspending !== null && suspendMut.mutate(suspending.id)}
-        onCancel={() => setSuspending(null)}
-      />
+        onConfirm={() =>
+          suspending !== null && suspendMut.mutate({ id: suspending.id, reason: suspendReason })
+        }
+        onCancel={() => {
+          setSuspending(null);
+          setSuspendReason("");
+        }}
+      >
+        <input
+          type="text"
+          value={suspendReason}
+          onChange={(e) => setSuspendReason(e.target.value)}
+          placeholder="Motivo (ej: Falta de pago) — se lo mostramos al cliente"
+          className="input mt-3 w-full"
+        />
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={deleting !== null}
