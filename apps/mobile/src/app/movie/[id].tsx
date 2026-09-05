@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { WebView } from "react-native-webview";
 import { ArrowLeft } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts } from "@/constants/theme";
 
 /**
@@ -44,11 +45,12 @@ const AUTO_GOODSTREAM_JS = `(function () {
  */
 export default function MovieScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { id, title } = useLocalSearchParams<{ id: string; title?: string }>();
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Pressable onPress={() => router.back()} hitSlop={10} style={styles.backBtn}>
           <ArrowLeft size={22} color={colors.text} />
         </Pressable>
@@ -95,7 +97,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     backgroundColor: colors.surface,

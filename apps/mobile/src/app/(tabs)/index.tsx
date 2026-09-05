@@ -1,5 +1,8 @@
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
+import { Image } from "expo-image";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Clapperboard,
   ChevronRight,
@@ -15,6 +18,8 @@ import { useHistory } from "@/hooks/use-me";
 import { ChannelCard } from "@/components/channel-card";
 import { colors, fonts } from "@/constants/theme";
 import { flagEmoji } from "@/lib/flags";
+import { posterUrl, trendingMovies } from "@/lib/tmdb";
+import type { TmdbMovie } from "@/lib/tmdb";
 
 const QUICK_COUNTRIES = [
   { code: "AR", label: "Argentina" },
@@ -36,10 +41,25 @@ const QUICK_CATEGORIES: { slug: string; label: string; icon: LucideIcon }[] = [
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { history } = useHistory();
+  const [featured, setFeatured] = useState<TmdbMovie[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    trendingMovies().then((m) => {
+      if (alive) setFeatured(m.slice(0, 10));
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}
+    >
       <Text style={styles.brand}>{APP_NAME}</Text>
 
       <Text style={styles.sectionTitle}>Películas y series</Text>
@@ -56,6 +76,46 @@ export default function HomeScreen() {
         </View>
         <ChevronRight size={20} color={colors.textFaint} />
       </Pressable>
+
+      {featured.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Películas destacadas</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.featuredRow}
+          >
+            {featured.map((m) => (
+              <Pressable
+                key={m.id}
+                style={({ pressed }) => [styles.featuredCard, pressed && styles.tilePressed]}
+                onPress={() =>
+                  router.push({
+                    pathname: "/movie/[id]",
+                    params: { id: String(m.id), title: m.title },
+                  })
+                }
+              >
+                {posterUrl(m.poster_path) !== null ? (
+                  <Image
+                    source={{ uri: posterUrl(m.poster_path) as string }}
+                    style={styles.featuredPoster}
+                    contentFit="cover"
+                    transition={150}
+                  />
+                ) : (
+                  <View style={[styles.featuredPoster, styles.featuredFallback]}>
+                    <Text style={styles.featuredInitial}>{m.title.charAt(0)}</Text>
+                  </View>
+                )}
+                <Text style={styles.featuredTitle} numberOfLines={1}>
+                  {m.title}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </>
+      )}
 
       {history.length > 0 && (
         <>
@@ -157,6 +217,35 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 12,
     fontFamily: fonts.regular,
+  },
+  featuredRow: {
+    gap: 10,
+  },
+  featuredCard: {
+    width: 110,
+    gap: 6,
+  },
+  featuredPoster: {
+    width: 110,
+    height: 165,
+    borderRadius: 10,
+    backgroundColor: colors.surfaceRaised,
+  },
+  featuredFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  featuredInitial: {
+    color: colors.brand,
+    fontSize: 36,
+    fontWeight: "700",
+    fontFamily: fonts.bold,
+  },
+  featuredTitle: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: "600",
+    fontFamily: fonts.semibold,
   },
   sectionTitle: {
     color: colors.textMuted,
