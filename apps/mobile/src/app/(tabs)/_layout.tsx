@@ -1,4 +1,4 @@
-import { StyleSheet, type ColorValue } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { Tabs } from "expo-router";
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -12,14 +12,21 @@ import {
 } from "lucide-react-native";
 import { colors, fonts } from "@/constants/theme";
 
-function TabIcon({
-  icon: Icon,
-  color,
-}: {
-  icon: LucideIcon;
-  color: ColorValue;
-}) {
-  return <Icon size={21} color={color as string} strokeWidth={2} />;
+/**
+ * Píldora flotante en la pestaña activa: el ícono se asienta sobre un fondo
+ * brand redondeado, como las tab bars de apps de streaming (look pro, no
+ * solo cambio de color).
+ */
+function TabIcon({ icon: Icon, focused }: { icon: LucideIcon; focused: boolean }) {
+  return (
+    <View style={[styles.pill, focused && styles.pillActive]}>
+      <Icon
+        size={20}
+        color={focused ? "#FFFFFF" : colors.textFaint}
+        strokeWidth={focused ? 2.4 : 2}
+      />
+    </View>
+  );
 }
 
 export default function TabsLayout() {
@@ -35,16 +42,12 @@ export default function TabsLayout() {
           borderTopColor: "transparent",
           backgroundColor: "transparent",
           elevation: 0,
-          height: 56 + insets.bottom,
+          height: 64 + insets.bottom,
           paddingBottom: insets.bottom,
-          paddingTop: 6,
+          paddingTop: 8,
         },
         tabBarBackground: () => (
-          <BlurView
-            tint="dark"
-            intensity={70}
-            style={StyleSheet.absoluteFill}
-          />
+          <BlurView tint="dark" intensity={70} style={StyleSheet.absoluteFill} />
         ),
         tabBarLabelStyle: {
           fontSize: 11,
@@ -55,24 +58,37 @@ export default function TabsLayout() {
     >
       <Tabs.Screen
         name="index"
-        options={{ title: "Inicio", tabBarIcon: ({ color }) => <TabIcon icon={Home} color={color} /> }}
+        options={{ title: "Inicio", tabBarIcon: ({ focused }) => <TabIcon icon={Home} focused={focused} /> }}
       />
       <Tabs.Screen
         name="canales"
-        options={{ title: "Canales", tabBarIcon: ({ color }) => <TabIcon icon={Tv} color={color} /> }}
+        options={{ title: "Canales", tabBarIcon: ({ focused }) => <TabIcon icon={Tv} focused={focused} /> }}
       />
       <Tabs.Screen
         name="favoritos"
-        options={{ title: "Favoritos", tabBarIcon: ({ color }) => <TabIcon icon={Star} color={color} /> }}
+        options={{ title: "Favoritos", tabBarIcon: ({ focused }) => <TabIcon icon={Star} focused={focused} /> }}
       />
       <Tabs.Screen
         name="buscar"
-        options={{ title: "Buscar", tabBarIcon: ({ color }) => <TabIcon icon={Search} color={color} /> }}
+        options={{ title: "Buscar", tabBarIcon: ({ focused }) => <TabIcon icon={Search} focused={focused} /> }}
       />
       <Tabs.Screen
         name="mas"
-        options={{ title: "Más", tabBarIcon: ({ color }) => <TabIcon icon={MoreHorizontal} color={color} /> }}
+        options={{ title: "Más", tabBarIcon: ({ focused }) => <TabIcon icon={MoreHorizontal} focused={focused} /> }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  pill: {
+    width: 46,
+    height: 28,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pillActive: {
+    backgroundColor: colors.brand,
+  },
+});

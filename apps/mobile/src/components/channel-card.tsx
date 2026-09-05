@@ -100,6 +100,7 @@ const styles = StyleSheet.create({
   cardPressed: {
     borderColor: colors.brand,
     backgroundColor: colors.surfaceRaised,
+    transform: [{ scale: 0.96 }],
   },
   logo: {
     width: 56,
