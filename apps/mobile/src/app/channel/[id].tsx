@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { ArrowLeft, Star } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -35,6 +35,18 @@ function Player({ uri }: { uri: string }) {
     p.loop = false;
     p.play();
   });
+
+  // Pausa al perder el foco (ej. navegar a otro canal) para no seguir
+  // sonando de fondo; reanuda al volver a esta pantalla.
+  useFocusEffect(
+    useCallback(() => {
+      player.play();
+      return () => {
+        player.pause();
+      };
+    }, [player]),
+  );
+
   return (
     <VideoView
       player={player}
