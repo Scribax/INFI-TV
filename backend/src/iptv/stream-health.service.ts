@@ -42,7 +42,14 @@ export class StreamHealthService {
   async checkAll(limit?: number): Promise<HealthCheckResult> {
     const started = Date.now();
     const channels = await this.prisma.channel.findMany({
-      where: { isActive: true, isHidden: false },
+      where: {
+        isActive: true,
+        isHidden: false,
+        OR: [
+          { streamStatus: { not: "ONLINE" } },
+          { lastCheckedAt: { lt: new Date(Date.now() - 12 * 3600 * 1000) } },
+        ],
+      },
       select: { id: true, streamUrl: true },
       orderBy: { countryCode: "asc" },
       take: limit ?? 100000,
