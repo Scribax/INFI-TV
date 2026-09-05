@@ -1,11 +1,8 @@
-import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
   Clapperboard,
-  ChevronRight,
   Film,
   Globe,
   Music,
@@ -18,8 +15,6 @@ import { useHistory } from "@/hooks/use-me";
 import { ChannelCard } from "@/components/channel-card";
 import { colors, fonts } from "@/constants/theme";
 import { flagEmoji } from "@/lib/flags";
-import { fetchMovies } from "@/lib/vod";
-import type { VodMovie } from "@/lib/vod";
 
 const QUICK_COUNTRIES = [
   { code: "AR", label: "Argentina" },
@@ -43,19 +38,6 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { history } = useHistory();
-  const [featured, setFeatured] = useState<VodMovie[]>([]);
-
-  useEffect(() => {
-    let alive = true;
-    fetchMovies({ limit: 10 })
-      .then((m) => {
-        if (alive) setFeatured(m);
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   return (
     <ScrollView
@@ -63,61 +45,6 @@ export default function HomeScreen() {
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}
     >
       <Text style={styles.brand}>{APP_NAME}</Text>
-
-      <Text style={styles.sectionTitle}>Películas y series</Text>
-      <Pressable
-        style={({ pressed }) => [styles.vodCard, pressed && styles.tilePressed]}
-        onPress={() => router.push("/movies")}
-      >
-        <View style={styles.vodIcon}>
-          <Film size={22} color={colors.brand} />
-        </View>
-        <View style={styles.vodTextWrap}>
-          <Text style={styles.vodTitle}>Películas</Text>
-          <Text style={styles.vodSub}>Buscá y mirá al instante</Text>
-        </View>
-        <ChevronRight size={20} color={colors.textFaint} />
-      </Pressable>
-
-      {featured.length > 0 && (
-        <>
-          <Text style={styles.sectionTitle}>Películas destacadas</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.featuredRow}
-          >
-            {featured.map((m) => (
-              <Pressable
-                key={m.id}
-                style={({ pressed }) => [styles.featuredCard, pressed && styles.tilePressed]}
-                onPress={() =>
-                  router.push({
-                    pathname: "/movie/[id]",
-                    params: { id: m.id, title: m.name },
-                  })
-                }
-              >
-                {m.poster !== null ? (
-                  <Image
-                    source={{ uri: m.poster as string }}
-                    style={styles.featuredPoster}
-                    contentFit="cover"
-                    transition={150}
-                  />
-                ) : (
-                  <View style={[styles.featuredPoster, styles.featuredFallback]}>
-                    <Text style={styles.featuredInitial}>{m.name.charAt(0)}</Text>
-                  </View>
-                )}
-                <Text style={styles.featuredTitle} numberOfLines={1}>
-                  {m.name}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </>
-      )}
 
       {history.length > 0 && (
         <>
