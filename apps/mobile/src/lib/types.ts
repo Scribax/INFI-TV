@@ -42,3 +42,12 @@ export interface EpgProgramItem {
   endsAt: string;
   isLive: boolean;
 }
+
+/** Estado de la cuenta (GET /auth/status), para polling y perfil. */
+export interface AccountStatus {
+  status: "ACTIVE" | "SUSPENDED" | "EXPIRED" | "DEVICE_REVOKED";
+  suspensionReason: string | null;
+  expiresAt: string | null;
+  plan: string;
+  displayName: string;
+}

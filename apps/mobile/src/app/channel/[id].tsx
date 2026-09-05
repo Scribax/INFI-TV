@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Image,
   Pressable,
@@ -9,21 +9,23 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
+import { ArrowLeft, Star } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/lib/api";
+import { getAccountStatus } from "@/lib/me";
 import { recordWatch } from "@/lib/me";
 import { useFavorites } from "@/hooks/use-me";
 import { useChannelEpg } from "@/hooks/use-epg";
-import { colors } from "@/constants/theme";
+import { useChannels } from "@/hooks/use-channels";
+import { ChannelCard } from "@/components/channel-card";
+import { colors, fonts } from "@/constants/theme";
 import { flagEmoji } from "@/lib/flags";
-import type { ChannelItem, EpgProgramItem } from "@/lib/types";
-
-type AccountStatus = {
-  status: "ACTIVE" | "SUSPENDED" | "EXPIRED" | "DEVICE_REVOKED";
-  suspensionReason: string | null;
-  expiresAt: string | null;
-  plan: string;
-  displayName: string;
-};
+import { channelQuality } from "@/lib/quality";
+import type {
+  AccountStatus,
+  ChannelItem,
+  EpgProgramItem,
+} from "@/lib/types";
 
 /** Frecuencia de chequeo del estado de la cuenta mientras se reproduce. */
 const POLL_MS = 20_000;
@@ -85,7 +87,7 @@ function formatTime(iso: string): string {
 function EpgSection({ programs }: { programs: EpgProgramItem[] }) {
   return (
     <View style={styles.epg}>
-      <Text style={styles.epgTitle}>Programación</Text>
+      <Text style={styles.sectionLabel}>Programación</Text>
       {programs.slice(0, 8).map((p) => (
         <View key={p.id} style={styles.epgRow}>
           <Text style={[styles.epgTime, p.isLive && styles.epgTimeNow]}>
@@ -111,8 +113,44 @@ function EpgSection({ programs }: { programs: EpgProgramItem[] }) {
   );
 }
 
+/** Canales del mismo país (o categoría) como sugerencia. */
+function RelatedChannels({
+  channel,
+  onOpen,
+}: {
+  channel: ChannelItem;
+  onOpen: (id: string) => void;
+}) {
+  const { items } = useChannels(
+    channel.countryCode !== null
+      ? { country: channel.countryCode }
+      : channel.categories[0] !== undefined
+        ? { category: channel.categories[0].slug }
+        : {},
+  );
+  const related = items.filter((c) => c.id !== channel.id).slice(0, 12);
+  if (related.length === 0) return null;
+  return (
+    <View style={styles.related}>
+      <Text style={styles.sectionLabel}>Canales relacionados</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.relatedRow}
+      >
+        {related.map((c) => (
+          <View key={c.id} style={styles.relatedItem}>
+            <ChannelCard channel={c} onPress={onOpen} />
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
 export default function ChannelScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { isFavorite, toggle } = useFavorites();
   const { programs } = useChannelEpg(id);
@@ -146,7 +184,7 @@ export default function ChannelScreen() {
     let cancelled = false;
     const check = async () => {
       try {
-        const acc = await api.get<AccountStatus>("/auth/status");
+        const acc = await getAccountStatus();
         if (cancelled) return;
         setAccountStatus(acc.status);
         setSuspensionReason(acc.suspensionReason);
@@ -162,19 +200,43 @@ export default function ChannelScreen() {
     };
   }, []);
 
+  const openChannel = useCallback(
+    (cid: string) => router.push(`/channel/${cid}`),
+    [router],
+  );
+
   const fav = channel !== null && isFavorite(id);
   const blocked = accountStatus !== null && accountStatus !== "ACTIVE";
+  const quality = channel !== null ? channelQuality(channel.name) : null;
+  const isLive = channel?.streamStatus === "ONLINE";
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Text style={styles.back}>‹ Volver</Text>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={10}
+          style={styles.headerBtn}
+        >
+          <ArrowLeft size={22} color={colors.text} />
         </Pressable>
-        {channel !== null && !blocked && (
-          <Pressable onPress={() => toggle(channel)} hitSlop={8}>
-            <Text style={styles.fav}>{fav ? "⭐" : "☆"}</Text>
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {channel?.name ?? "Canal"}
+        </Text>
+        {channel !== null && !blocked ? (
+          <Pressable
+            onPress={() => toggle(channel)}
+            hitSlop={10}
+            style={styles.headerBtn}
+          >
+            <Star
+              size={22}
+              color={fav ? colors.warn : colors.textMuted}
+              fill={fav ? colors.warn : "none"}
+            />
           </Pressable>
+        ) : (
+          <View style={styles.headerBtn} />
         )}
       </View>
 
@@ -193,7 +255,11 @@ export default function ChannelScreen() {
           onBack={() => router.back()}
         />
       ) : (
-        <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
+        <ScrollView
+          style={styles.body}
+          contentContainerStyle={styles.bodyContent}
+          showsVerticalScrollIndicator={false}
+        >
           <Player uri={channel.streamUrl} />
 
           <View style={styles.meta}>
@@ -215,15 +281,30 @@ export default function ChannelScreen() {
               <Text style={styles.name} numberOfLines={2}>
                 {channel.name}
               </Text>
-              {channel.countryCode !== null && (
-                <Text style={styles.flag}>
-                  {flagEmoji(channel.countryCode)}
-                </Text>
-              )}
+              <View style={styles.badges}>
+                {isLive && (
+                  <View style={styles.liveBadge}>
+                    <View style={styles.liveDot} />
+                    <Text style={styles.liveBadgeText}>EN VIVO</Text>
+                  </View>
+                )}
+                {quality !== null && (
+                  <View style={[styles.badge, { backgroundColor: quality.bg }]}>
+                    <Text style={[styles.badgeText, { color: quality.color }]}>
+                      {quality.label}
+                    </Text>
+                  </View>
+                )}
+                {channel.countryCode !== null && (
+                  <Text style={styles.flag}>{flagEmoji(channel.countryCode)}</Text>
+                )}
+              </View>
             </View>
           </View>
 
           {programs.length > 0 && <EpgSection programs={programs} />}
+
+          <RelatedChannels channel={channel} onOpen={openChannel} />
         </ScrollView>
       )}
     </View>
@@ -238,16 +319,22 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingBottom: 8,
   },
-  back: {
-    color: colors.textMuted,
+  headerBtn: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTitle: {
+    flex: 1,
+    color: colors.text,
     fontSize: 16,
-  },
-  fav: {
-    fontSize: 22,
+    fontWeight: "700",
+    fontFamily: fonts.bold,
   },
   center: {
     flex: 1,
@@ -258,7 +345,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bodyContent: {
-    paddingBottom: 24,
+    paddingBottom: 32,
   },
   video: {
     width: "100%",
@@ -268,13 +355,13 @@ const styles = StyleSheet.create({
   meta: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 14,
     padding: 16,
   },
   logo: {
-    width: 64,
-    height: 44,
-    borderRadius: 8,
+    width: 72,
+    height: 52,
+    borderRadius: 10,
   },
   logoFallback: {
     backgroundColor: colors.surfaceRaised,
@@ -283,37 +370,80 @@ const styles = StyleSheet.create({
   },
   logoInitial: {
     color: colors.brand,
-    fontSize: 22,
+    fontSize: 26,
     fontWeight: "700",
+    fontFamily: fonts.bold,
   },
   metaText: {
     flex: 1,
-    gap: 4,
+    gap: 8,
   },
   name: {
     color: colors.text,
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "700",
+    fontFamily: fonts.bold,
+  },
+  badges: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  liveBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: "rgba(248,113,113,0.16)",
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.danger,
+  },
+  liveBadgeText: {
+    color: colors.danger,
+    fontSize: 10,
+    fontWeight: "700",
+    fontFamily: fonts.bold,
+    letterSpacing: 0.5,
+  },
+  badge: {
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    fontFamily: fonts.bold,
+    letterSpacing: 0.4,
   },
   flag: {
-    fontSize: 18,
+    fontSize: 20,
+  },
+  sectionLabel: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: "700",
+    fontFamily: fonts.bold,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 10,
   },
   epg: {
     paddingHorizontal: 16,
-    gap: 10,
-  },
-  epgTitle: {
-    color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 2,
+    paddingTop: 4,
+    marginBottom: 8,
   },
   epgRow: {
     flexDirection: "row",
     gap: 12,
     alignItems: "flex-start",
+    paddingVertical: 6,
   },
   epgTime: {
     color: colors.textFaint,
@@ -333,15 +463,28 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 14,
     fontWeight: "500",
+    fontFamily: fonts.medium,
   },
   epgNameNow: {
     color: colors.brand,
     fontWeight: "700",
+    fontFamily: fonts.bold,
   },
   epgDesc: {
     color: colors.textMuted,
     fontSize: 12,
     marginTop: 2,
+    fontFamily: fonts.regular,
+  },
+  related: {
+    paddingHorizontal: 16,
+    marginTop: 8,
+  },
+  relatedRow: {
+    gap: 10,
+  },
+  relatedItem: {
+    width: 140,
   },
   muted: {
     color: colors.textFaint,
@@ -362,6 +505,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 22,
     fontWeight: "800",
+    fontFamily: fonts.bold,
     textAlign: "center",
   },
   suspendedReason: {
@@ -386,5 +530,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "700",
+    fontFamily: fonts.bold,
   },
 });

@@ -18,10 +18,18 @@ import type { VodCategory, VodMovie } from "@/lib/vod";
 import { getProgress } from "@/lib/progress";
 import type { ProgressItem } from "@/lib/progress";
 
-function MoviePoster({ movie, onPress }: { movie: VodMovie; onPress: () => void }) {
+function MovieCard({
+  movie,
+  onPress,
+  width,
+}: {
+  movie: VodMovie;
+  onPress: () => void;
+  width: number | `${number}%`;
+}) {
   return (
     <Pressable
-      style={({ pressed }) => [styles.poster, pressed && styles.posterPressed]}
+      style={({ pressed }) => [styles.card, { width }, pressed && styles.cardPressed]}
       onPress={onPress}
     >
       {movie.poster !== null ? (
@@ -66,11 +74,13 @@ export default function MoviesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<string | undefined>(undefined);
+  const [search, setSearch] = useState("");
   const [language, setLanguage] = useState<string | undefined>(undefined);
   const [categories, setCategories] = useState<VodCategory[]>([]);
-  const [movies, setMovies] = useState<VodMovie[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [genreRows, setGenreRows] = useState<
+    { cat: VodCategory; movies: VodMovie[] }[]
+  >([]);
+  const [results, setResults] = useState<VodMovie[]>([]);
   const [progress, setProgress] = useState<ProgressItem[]>([]);
 
   useFocusEffect(
@@ -79,11 +89,28 @@ export default function MoviesScreen() {
     }, []),
   );
 
+  // Debounce de búsqueda.
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(query.trim()), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  // Categorías → carruseles por género (top 8).
   useEffect(() => {
     let alive = true;
     fetchVodCategories()
-      .then((c) => {
-        if (alive) setCategories(c.filter((x) => x.category_name.trim() !== ""));
+      .then(async (cats) => {
+        const clean = cats.filter((c) => c.category_name.trim() !== "");
+        if (!alive) return;
+        setCategories(clean);
+        const top = clean.slice(0, 8);
+        const rows = await Promise.all(
+          top.map(async (cat) => ({
+            cat,
+            movies: await fetchMovies({ category: cat.category_id, limit: 12 }),
+          })),
+        );
+        if (alive) setGenreRows(rows);
       })
       .catch(() => {});
     return () => {
@@ -91,23 +118,32 @@ export default function MoviesScreen() {
     };
   }, []);
 
+  // Resultados de búsqueda.
   useEffect(() => {
+    if (search === "") {
+      setResults([]);
+      return;
+    }
     let alive = true;
-    setLoading(true);
-    fetchMovies({ category, search: query, language, limit: 60 })
+    fetchMovies({ search, language, limit: 60 })
       .then((r) => {
-        if (alive) setMovies(r);
+        if (alive) setResults(r);
       })
       .catch(() => {
-        if (alive) setMovies([]);
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
+        if (alive) setResults([]);
       });
     return () => {
       alive = false;
     };
-  }, [query, category, language]);
+  }, [search, language]);
+
+  const openMovie = useCallback(
+    (id: string, title: string) =>
+      router.push({ pathname: "/movie/[id]", params: { id, title } }),
+    [router],
+  );
+
+  const searching = search !== "";
 
   return (
     <View style={styles.container}>
@@ -154,53 +190,36 @@ export default function MoviesScreen() {
         </ScrollView>
       </View>
 
-      <View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipsRow}
-        >
-          <Chip
-            label="Todas"
-            active={category === undefined}
-            onPress={() => setCategory(undefined)}
-          />
-          {categories.map((c) => (
-            <Chip
-              key={c.category_id}
-              label={c.category_name}
-              active={category === c.category_id}
-              onPress={() => setCategory(c.category_id)}
+      {searching ? (
+        <FlatList
+          data={results}
+          keyExtractor={(m) => m.id}
+          numColumns={3}
+          columnWrapperStyle={styles.gridRow}
+          contentContainerStyle={styles.gridContent}
+          renderItem={({ item }) => (
+            <MovieCard
+              movie={item}
+              width="31%"
+              onPress={() => openMovie(item.id, item.name)}
             />
-          ))}
-        </ScrollView>
-      </View>
-
-      <FlatList
-        data={movies}
-        keyExtractor={(m) => m.id}
-        numColumns={3}
-        columnWrapperStyle={styles.gridRow}
-        contentContainerStyle={styles.listContent}
-        renderItem={({ item }) => (
-          <MoviePoster
-            movie={item}
-            onPress={() =>
-              router.push({
-                pathname: "/movie/[id]",
-                params: { id: item.id, title: item.name },
-              })
-            }
-          />
-        )}
-        ListHeaderComponent={
-          progress.length > 0 ? (
-            <View style={styles.continueWrap}>
+          )}
+          ListEmptyComponent={
+            <Text style={styles.empty}>No se encontraron películas.</Text>
+          }
+        />
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.browseContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {progress.length > 0 && (
+            <View style={styles.section}>
               <Text style={styles.sectionTitle}>Continuar viendo</Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.continueRow}
+                contentContainerStyle={styles.row}
               >
                 {progress.map((p) => (
                   <Pressable
@@ -242,14 +261,29 @@ export default function MoviesScreen() {
                 ))}
               </ScrollView>
             </View>
-          ) : null
-        }
-        ListEmptyComponent={
-          loading ? null : (
-            <Text style={styles.empty}>No se encontraron películas.</Text>
-          )
-        }
-      />
+          )}
+
+          {genreRows.map((row) => (
+            <View key={row.cat.category_id} style={styles.section}>
+              <Text style={styles.sectionTitle}>{row.cat.category_name}</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.row}
+              >
+                {row.movies.map((m) => (
+                  <MovieCard
+                    key={m.id}
+                    movie={m}
+                    width={120}
+                    onPress={() => openMovie(m.id, m.name)}
+                  />
+                ))}
+              </ScrollView>
+            </View>
+          ))}
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -326,20 +360,12 @@ const styles = StyleSheet.create({
   chipTextActive: {
     color: "#FFFFFF",
   },
-  gridRow: {
-    gap: 10,
-  },
-  listContent: {
-    padding: 12,
-    gap: 12,
-  },
-  poster: {
-    width: "31%",
-    flexGrow: 1,
+  card: {
     gap: 6,
   },
-  posterPressed: {
+  cardPressed: {
     opacity: 0.7,
+    transform: [{ scale: 0.97 }],
   },
   posterImg: {
     width: "100%",
@@ -363,26 +389,36 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontFamily: fonts.semibold,
   },
+  gridRow: {
+    gap: 10,
+  },
+  gridContent: {
+    padding: 12,
+    gap: 12,
+  },
+  browseContent: {
+    paddingBottom: 32,
+    gap: 22,
+  },
+  section: {
+    paddingHorizontal: 12,
+  },
+  sectionTitle: {
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: "700",
+    fontFamily: fonts.bold,
+    marginBottom: 10,
+  },
+  row: {
+    gap: 10,
+    paddingRight: 12,
+  },
   empty: {
     color: colors.textMuted,
     textAlign: "center",
     paddingVertical: 24,
     fontFamily: fonts.regular,
-  },
-  continueWrap: {
-    marginBottom: 4,
-  },
-  sectionTitle: {
-    color: colors.textMuted,
-    fontSize: 14,
-    fontWeight: "600",
-    fontFamily: fonts.semibold,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  continueRow: {
-    gap: 10,
   },
   continueCard: {
     width: 120,

@@ -1,5 +1,5 @@
 import { api } from "./api";
-import type { ChannelItem, HistoryEntry } from "./types";
+import type { AccountStatus, ChannelItem, HistoryEntry } from "./types";
 
 export function getFavorites(): Promise<ChannelItem[]> {
   return api.get<ChannelItem[]>("/me/favorites");
@@ -19,4 +19,9 @@ export function getHistory(): Promise<HistoryEntry[]> {
 
 export function recordWatch(channelId: string): Promise<unknown> {
   return api.post(`/me/history/${channelId}`, undefined);
+}
+
+/** Perfil y estado de la cuenta del cliente (para "Más" y polling). */
+export function getAccountStatus(): Promise<AccountStatus> {
+  return api.get<AccountStatus>("/auth/status");
 }
