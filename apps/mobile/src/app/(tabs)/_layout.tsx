@@ -1,6 +1,5 @@
 import { StyleSheet, View } from "react-native";
 import { Tabs } from "expo-router";
-import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Home,
@@ -13,9 +12,8 @@ import {
 import { colors, fonts } from "@/constants/theme";
 
 /**
- * Píldora flotante en la pestaña activa: el ícono se asienta sobre un fondo
- * brand redondeado, como las tab bars de apps de streaming (look pro, no
- * solo cambio de color).
+ * Píldora flotante en la pestaña activa. La barra usa fondo sólido (no blur
+ * transparente) para que se note el borde superior y la superficie.
  */
 function TabIcon({ icon: Icon, focused }: { icon: LucideIcon; focused: boolean }) {
   return (
@@ -39,16 +37,14 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: colors.textFaint,
         tabBarStyle: {
           position: "absolute",
-          borderTopColor: "transparent",
-          backgroundColor: "transparent",
+          borderTopColor: colors.border,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          backgroundColor: "#111827",
           elevation: 0,
           height: 64 + insets.bottom,
           paddingBottom: insets.bottom,
           paddingTop: 8,
         },
-        tabBarBackground: () => (
-          <BlurView tint="dark" intensity={70} style={StyleSheet.absoluteFill} />
-        ),
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: "600",
