@@ -65,6 +65,7 @@ export default function MoviesScreen() {
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string | undefined>(undefined);
+  const [language, setLanguage] = useState<string | undefined>(undefined);
   const [categories, setCategories] = useState<VodCategory[]>([]);
   const [movies, setMovies] = useState<VodMovie[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,7 +85,7 @@ export default function MoviesScreen() {
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    fetchMovies({ category, search: query, limit: 60 })
+    fetchMovies({ category, search: query, language, limit: 60 })
       .then((r) => {
         if (alive) setMovies(r);
       })
@@ -97,7 +98,7 @@ export default function MoviesScreen() {
     return () => {
       alive = false;
     };
-  }, [query, category]);
+  }, [query, category, language]);
 
   return (
     <View style={styles.container}>
@@ -118,6 +119,30 @@ export default function MoviesScreen() {
           placeholderTextColor={colors.textFaint}
           autoCorrect={false}
         />
+      </View>
+
+      <View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipsRow}
+        >
+          <Chip
+            label="🌐 Todos"
+            active={language === undefined}
+            onPress={() => setLanguage(undefined)}
+          />
+          <Chip
+            label="🇪🇸 Español"
+            active={language === "es"}
+            onPress={() => setLanguage("es")}
+          />
+          <Chip
+            label="🇬🇧 Inglés"
+            active={language === "en"}
+            onPress={() => setLanguage("en")}
+          />
+        </ScrollView>
       </View>
 
       <View>

@@ -62,7 +62,7 @@ function qs(params: Record<string, string | number | undefined>): string {
 /** Las 4K/HEVC no se decodifican en el teléfono (solo en TV boxes) → se ocultan. */
 const is4k = (name: string) => /\b(4K|2160P|UHD)\b/i.test(name);
 
-export const fetchMovies = (p: { category?: string; search?: string; limit?: number } = {}) =>
+export const fetchMovies = (p: { category?: string; search?: string; language?: string; limit?: number } = {}) =>
   api.get<VodMovie[]>(`/vod/movies${qs(p)}`).then((list) => list.filter((m) => !is4k(m.name)));
 
 export const fetchMovieDetail = (id: string) =>
@@ -74,7 +74,7 @@ export const fetchMovieStream = (id: string) =>
 export const fetchVodCategories = () =>
   api.get<VodCategory[]>("/vod/movies/categories");
 
-export const fetchSeries = (p: { category?: string; search?: string; limit?: number } = {}) =>
+export const fetchSeries = (p: { category?: string; search?: string; language?: string; limit?: number } = {}) =>
   api.get<SeriesItem[]>(`/vod/series${qs(p)}`).then((list) => list.filter((s) => !is4k(s.name)));
 
 export const fetchSeriesDetail = (id: string) =>

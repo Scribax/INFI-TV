@@ -11,6 +11,10 @@ export class VodQueryDto {
   search?: string;
 
   @IsOptional()
+  @IsString()
+  language?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)

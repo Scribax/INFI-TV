@@ -99,7 +99,26 @@ export class VodService {
     return this.api("get_series_categories");
   }
 
-  async movies(category?: string, search?: string, limit = 40): Promise<VodItem[]> {
+  private static readonly LANG_PREFIXES: Record<string, string> = {
+    es: "ES",
+    en: "EN",
+  };
+
+  /** Filtra por idioma usando el prefijo del nombre (ES/EN que usa el proveedor). */
+  private filterLanguage<T extends { name: string }>(
+    items: T[],
+    language?: string,
+  ): T[] {
+    if (language === undefined || language.trim() === "") return items;
+    const p = VodService.LANG_PREFIXES[language.trim().toLowerCase()];
+    if (p === undefined) return items;
+    return items.filter((i) => {
+      const n = i.name.trim().toUpperCase();
+      return n.startsWith(`${p}-`) || n.startsWith(`${p} `);
+    });
+  }
+
+  async movies(category?: string, search?: string, language?: string, limit = 40): Promise<VodItem[]> {
     this.assertConfigured();
     const raw = await this.api<Record<string, unknown>[]>("get_vod_streams");
     let items: VodItem[] = raw.map((m) => ({
@@ -118,10 +137,11 @@ export class VodService {
       const s = search.trim().toLowerCase();
       items = items.filter((i) => i.name.toLowerCase().includes(s));
     }
+    items = this.filterLanguage(items, language);
     return items.slice(0, limit);
   }
 
-  async series(category?: string, search?: string, limit = 40): Promise<SeriesItem[]> {
+  async series(category?: string, search?: string, language?: string, limit = 40): Promise<SeriesItem[]> {
     this.assertConfigured();
     const raw = await this.api<Record<string, unknown>[]>("get_series");
     let items: SeriesItem[] = raw.map((s) => ({
@@ -138,6 +158,7 @@ export class VodService {
       const s = search.trim().toLowerCase();
       items = items.filter((i) => i.name.toLowerCase().includes(s));
     }
+    items = this.filterLanguage(items, language);
     return items.slice(0, limit);
   }
 

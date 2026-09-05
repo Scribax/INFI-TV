@@ -14,7 +14,7 @@ export class VodController {
   @Get("vod/movies")
   @ApiOperation({ summary: "Catálogo VOD de películas (filtro por categoría y búsqueda)" })
   movies(@Query() q: VodQueryDto): Promise<VodItem[]> {
-    return this.vod.movies(q.category, q.search, q.limit ?? 40);
+    return this.vod.movies(q.category, q.search, q.language, q.limit ?? 40);
   }
 
   @Get("vod/movies/categories")
@@ -32,7 +32,7 @@ export class VodController {
   @Get("vod/series")
   @ApiOperation({ summary: "Catálogo de series (filtro por categoría y búsqueda)" })
   series(@Query() q: VodQueryDto): Promise<SeriesItem[]> {
-    return this.vod.series(q.category, q.search, q.limit ?? 40);
+    return this.vod.series(q.category, q.search, q.language, q.limit ?? 40);
   }
 
   @Get("vod/series/categories")
