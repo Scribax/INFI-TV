@@ -9,7 +9,6 @@ import { RolesGuard } from "../auth/roles.guard";
 import { IptvSyncService } from "./iptv-sync.service";
 import type { SyncResult } from "./iptv-sync.service";
 import { StreamHealthService } from "./stream-health.service";
-import type { HealthCheckResult } from "./stream-health.service";
 
 @ApiTags("admin-iptv")
 @Controller("admin/iptv")
@@ -33,9 +32,10 @@ export class IptvSyncController {
 
   @Post("healthcheck")
   @Roles("ADMIN")
-  @ApiOperation({ summary: "Prueba los streams y marca ONLINE/OFFLINE/TIMEOUT" })
-  healthCheck(@Query("limit") limit?: string): Promise<HealthCheckResult> {
+  @ApiOperation({ summary: "Prueba los streams en background y marca ONLINE/OFFLINE/TIMEOUT" })
+  healthCheck(@Query("limit") limit?: string): { started: true } {
     const n = limit !== undefined ? Number(limit) : undefined;
-    return this.health.checkAll(Number.isFinite(n) && n !== undefined ? n : undefined);
+    void this.health.checkAll(Number.isFinite(n) && n !== undefined ? n : undefined);
+    return { started: true };
   }
 }

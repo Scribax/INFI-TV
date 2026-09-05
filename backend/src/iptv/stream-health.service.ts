@@ -89,6 +89,10 @@ export class StreamHealthService {
     const workerCount = Math.min(CONCURRENCY, channels.length);
     await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
+    this.logger.log(
+      `Health check COMPLETO: ${done} canales (online=${online}, offline=${offline}, timeout=${timeout}) en ${((Date.now() - started) / 1000).toFixed(0)}s`,
+    );
+
     return {
       checked: done,
       online,
