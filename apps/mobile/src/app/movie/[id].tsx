@@ -5,6 +5,40 @@ import { ArrowLeft } from "lucide-react-native";
 import { colors, fonts } from "@/constants/theme";
 
 /**
+ * Auto-selecciona el servidor "Goodstream" (sin publicidad) apenas el player
+ * de unlimplay lista los servidores. MutationObserver espera a que el botón
+ * aparezca (el scrape es async) y le dispara click.
+ */
+const AUTO_GOODSTREAM_JS = `(function () {
+  function pick() {
+    var nodes = document.querySelectorAll("button, a, div, span, li");
+    var best = null;
+    for (var i = 0; i < nodes.length; i++) {
+      var t = (nodes[i].textContent || "").trim();
+      if (/goodstream/i.test(t) && t.length < 40) {
+        if (!best || nodes[i].children.length <= best.children.length) {
+          best = nodes[i];
+        }
+      }
+    }
+    if (best) {
+      best.click();
+      return true;
+    }
+    return false;
+  }
+  if (!pick()) {
+    var obs = new MutationObserver(function () {
+      if (pick()) obs.disconnect();
+    });
+    obs.observe(document.body || document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
+  }
+})(); true;`;
+
+/**
  * Reproductor de películas vía unlimplay (embed en WebView).
  * Recibe el ID de TMDb en la ruta: /movie/{id}.
  */
@@ -31,6 +65,7 @@ export default function MovieScreen() {
         javaScriptEnabled
         domStorageEnabled
         setSupportMultipleWindows={false}
+        injectedJavaScript={AUTO_GOODSTREAM_JS}
         onShouldStartLoadWithRequest={(request) => {
           // Bloquear navegación top-level a dominios de ads/redirects: unlimplay
           // mete popups y prerolls de apuestas. Solo se permite el dominio de
