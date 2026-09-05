@@ -23,6 +23,7 @@ import { IptvSyncModule } from "./iptv/iptv-sync.module";
 import { ChannelsModule } from "./channels/channels.module";
 import { MeModule } from "./me/me.module";
 import { EpgModule } from "./epg/epg.module";
+import { VodModule } from "./vod/vod.module";
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { EpgModule } from "./epg/epg.module";
     ChannelsModule,
     MeModule,
     EpgModule,
+    VodModule,
     ScheduleModule.forRoot(),
   ],
   providers: [

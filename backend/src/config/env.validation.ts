@@ -29,4 +29,7 @@ export const envValidationSchema = Joi.object({
   EPG_SYNC_ENABLED: Joi.string().valid("true", "false").default("false"),
   IPTV_SYNC_CRON: Joi.string().default("0 */6 * * *"),
   IPTV_SYNC_ENABLED: Joi.string().valid("true", "false").default("false"),
+  XTREAM_BASE_URL: Joi.string().allow("").default(""),
+  XTREAM_USERNAME: Joi.string().allow("").default(""),
+  XTREAM_PASSWORD: Joi.string().allow("").default(""),
 });
