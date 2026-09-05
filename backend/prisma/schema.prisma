@@ -1,0 +1,331 @@
+// INFI TV — Prisma schema (FASE 2)
+// 14 entidades mínimas. PostgreSQL 16. Migraciones con Prisma Migrate.
+// Nunca editar la DB de producción manualmente.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ──────────────────────────────────────────────
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  OPERATOR
+}
+
+enum ActivationCodeStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  SUSPENDED
+  REVOKED
+}
+
+enum CustomerStatus {
+  ACTIVE
+  EXPIRED
+  SUSPENDED
+}
+
+enum DeviceStatus {
+  ACTIVE
+  REVOKED
+  BLOCKED
+}
+
+enum SessionStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+enum StreamStatus {
+  ONLINE
+  OFFLINE
+  TIMEOUT
+  UNKNOWN
+}
+
+// ── Administración ─────────────────────────────────────
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  role         AdminRole @default(ADMIN)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  createdCodes ActivationCode[] @relation("CodeCreatedBy")
+  sessions     AdminSession[]
+
+  @@index([role])
+  @@index([isActive])
+  @@map("admin_users")
+}
+
+model AdminSession {
+  id        String    @id @default(cuid())
+  adminId   String
+  admin     AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  ipCreated String?
+  userAgent String?
+  createdAt DateTime  @default(now())
+
+  @@index([adminId])
+  @@index([expiresAt])
+  @@map("admin_sessions")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorType String // "ADMIN" | "SYSTEM"
+  actorId   String?
+  action    String // p. ej. "admin.created_code"
+  entity    String?
+  entityId  String?
+  metadata  Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([actorId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  key         String   @id
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+// ── Comercial: planes, clientes, códigos ───────────────
+
+model Plan {
+  id                 String   @id @default(cuid())
+  name               String   @unique
+  durationDays       Int
+  priceInternalCents Int      @default(0)
+  deviceLimit        Int      @default(1)
+  description        String?
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  customers       Customer[]
+  activationCodes ActivationCode[]
+
+  @@index([isActive])
+  @@map("plans")
+}
+
+model Customer {
+  id          String         @id @default(cuid())
+  displayName String
+  status      CustomerStatus @default(ACTIVE)
+  planId      String?
+  plan        Plan?          @relation(fields: [planId], references: [id], onDelete: Restrict)
+  expiresAt   DateTime?
+  lastSeenAt  DateTime?
+  notes       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  activationCodes ActivationCode[]
+  devices         Device[]
+  sessions        Session[]
+  favorites       Favorite[]
+  watchHistories  WatchHistory[]
+
+  @@index([status])
+  @@index([planId])
+  @@index([expiresAt])
+  @@map("customers")
+}
+
+model ActivationCode {
+  id              String               @id @default(cuid())
+  codeHash        String               @unique
+  prefix          String // pista visible (p. ej. "INFITV-7K"), nunca el código completo
+  status          ActivationCodeStatus @default(PENDING)
+  planId          String
+  plan            Plan                 @relation(fields: [planId], references: [id], onDelete: Restrict)
+  customerId      String?
+  customer        Customer?            @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  deviceLimit     Int                  @default(1)
+  activatedAt     DateTime?
+  expiresAt       DateTime?
+  lastUsedAt      DateTime?
+  metadata        Json?
+  createdByAdminId String?
+  createdBy       AdminUser?           @relation("CodeCreatedBy", fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  devices Device[]
+
+  @@index([status])
+  @@index([planId])
+  @@index([customerId])
+  @@index([expiresAt])
+  @@map("activation_codes")
+}
+
+// ── Dispositivos y sesiones ────────────────────────────
+
+model Device {
+  id            String       @id @default(cuid())
+  customerId    String
+  customer      Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  appInstanceId String // UUID de instalación generado por la app, no el único factor de seguridad
+  platform      String // "android"
+  appVersion    String
+  model         String?
+  osVersion     String?
+  lastSeenAt    DateTime?
+  ipLast        String?
+  status        DeviceStatus @default(ACTIVE)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  activationCodeId String?
+  activationCode   ActivationCode? @relation(fields: [activationCodeId], references: [id], onDelete: SetNull)
+
+  sessions Session[]
+
+  @@unique([customerId, appInstanceId])
+  @@index([customerId])
+  @@index([status])
+  @@index([activationCodeId])
+  @@map("devices")
+}
+
+model Session {
+  id         String        @id @default(cuid())
+  customerId String
+  customer   Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  deviceId   String
+  device     Device        @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  tokenHash  String        @unique
+  status     SessionStatus @default(ACTIVE)
+  expiresAt  DateTime
+  lastSeenAt DateTime?
+  ipCreated  String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@index([customerId])
+  @@index([deviceId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// ── Catálogo IPTV ──────────────────────────────────────
+
+model Country {
+  code     String  @id
+  name     String
+  flag     String?
+  channels Channel[]
+
+  @@map("countries")
+}
+
+model Category {
+  id       String    @id @default(cuid())
+  slug     String    @unique
+  name     String
+  channels Channel[]
+
+  @@map("categories")
+}
+
+model Channel {
+  id                String       @id @default(cuid())
+  externalId        String?      @unique // id de la fuente (p. ej. iptv-org "Telefe.ar")
+  name              String
+  logoUrl           String?
+  streamUrl         String
+  countryCode       String?
+  country           Country?     @relation(fields: [countryCode], references: [code], onDelete: SetNull)
+  categories        Category[]
+  language          String?
+  isActive          Boolean      @default(true)
+  isHidden          Boolean      @default(false)
+  isGlobalFavorite  Boolean      @default(false)
+  streamStatus      StreamStatus @default(UNKNOWN)
+  lastCheckedAt     DateTime?
+  lastSuccessfulAt  DateTime?
+  failureCount      Int          @default(0)
+  epgChannelId      String?
+  sourceUpdatedAt   DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  favorites      Favorite[]
+  watchHistories WatchHistory[]
+  epgPrograms    EPGProgram[]
+
+  @@index([countryCode])
+  @@index([isActive])
+  @@index([streamStatus])
+  @@index([name])
+  @@map("channels")
+}
+
+model Favorite {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  channelId  String
+  channel    Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([customerId, channelId])
+  @@index([customerId])
+  @@map("favorites")
+}
+
+model WatchHistory {
+  id          String   @id @default(cuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  channelId   String
+  channel     Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  watchedAt   DateTime @default(now())
+  durationSec Int?
+
+  @@unique([customerId, channelId])
+  @@index([customerId, watchedAt])
+  @@map("watch_history")
+}
+
+model EPGProgram {
+  id          String   @id @default(cuid())
+  channelId   String
+  channel     Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  startsAt    DateTime
+  endsAt      DateTime
+
+  @@index([channelId, startsAt])
+  @@map("epg_programs")
+}

@@ -1,0 +1,15 @@
+* text=auto eol=lf
+
+# Binarios — nunca tocar
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.mp4 binary
+*.m3u8 binary

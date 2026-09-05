@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-canvas text-ink;
+  }
+  ::selection {
+    background: rgba(124, 108, 240, 0.35);
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-line bg-surface shadow-card;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-brand text-white hover:bg-brand-strong;
+  }
+  .btn-ghost {
+    @apply btn border border-line bg-transparent text-ink-muted hover:bg-raised hover:text-ink;
+  }
+  .btn-danger {
+    @apply btn bg-danger/10 text-danger border border-danger/30 hover:bg-danger/20;
+  }
+  .input {
+    @apply w-full rounded-lg border border-line bg-raised px-3 py-2 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-brand;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-medium text-ink-muted;
+  }
+}
+
+/* Scrollbar sutil acorde al tema */
+@layer utilities {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #33415f transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: #33415f;
+    border-radius: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}

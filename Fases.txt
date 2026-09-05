@@ -1,0 +1,2172 @@
+Quiero que desarrolles desde cero una plataforma IPTV completa llamada provisionalmente **INFI TV**.
+
+NO quiero solamente una APK.
+
+Quiero construir un producto completo compuesto por:
+
+1. Backend/API
+2. Base de datos
+3. Panel web administrativo
+4. Sistema de códigos de activación
+5. Gestión de dispositivos
+6. Gestión de clientes
+7. Gestión de planes y vencimientos
+8. Catálogo IPTV
+9. Aplicación Android
+10. Reproductor HLS
+11. Sistema de favoritos e historial
+12. Sistema de actualización de canales
+13. Seguridad
+14. Logs y estadísticas
+15. Dockerización
+16. Documentación
+17. Tests
+18. Build final APK/AAB
+
+El proyecto debe estar diseñado para poder crecer posteriormente.
+
+---
+
+# 0. REGLA FUNDAMENTAL
+
+NO escribir todo el proyecto de una sola vez.
+
+Trabajar por fases.
+
+Antes de implementar cada fase:
+
+1. analizar arquitectura
+2. explicar brevemente qué se va a construir
+3. crear/modificar únicamente los archivos necesarios
+4. ejecutar pruebas
+5. corregir errores
+6. verificar que la fase funciona
+7. continuar con la siguiente fase
+
+NO dejar pseudocódigo donde se solicita código funcional.
+
+NO utilizar implementaciones ficticias cuando exista una solución real.
+
+NO esconder errores con `any`, `@ts-ignore`, `eslint-disable`, excepciones vacías o hacks.
+
+Si una dependencia no es compatible con Expo/React Native, buscar una alternativa compatible antes de continuar.
+
+---
+
+# 1. ARQUITECTURA GENERAL
+
+La arquitectura final debe ser:
+
+```text
+                         ┌──────────────────────┐
+                         │   PANEL ADMIN WEB    │
+                         │                      │
+                         │ clientes             │
+                         │ códigos              │
+                         │ dispositivos         │
+                         │ canales              │
+                         │ planes               │
+                         │ estadísticas         │
+                         └──────────┬───────────┘
+                                    │
+                                  HTTPS
+                                    │
+                                    ▼
+                         ┌──────────────────────┐
+                         │      BACKEND API     │
+                         │                      │
+                         │ Auth Admin           │
+                         │ Activation API       │
+                         │ Device API           │
+                         │ IPTV API             │
+                         │ EPG API              │
+                         │ Admin API             │
+                         │ Logs                 │
+                         └──────────┬───────────┘
+                                    │
+                         ┌──────────┴──────────┐
+                         │                     │
+                         ▼                     ▼
+                  ┌─────────────┐       ┌─────────────┐
+                  │ PostgreSQL  │       │ IPTV-org    │
+                  │             │       │ / fuentes   │
+                  └─────────────┘       └─────────────┘
+                                   
+                                    │
+                                    ▼
+                         ┌──────────────────────┐
+                         │       APK ANDROID    │
+                         │    React Native      │
+                         │        Expo          │
+                         │                      │
+                         │ código activación    │
+                         │ canales              │
+                         │ favoritos            │
+                         │ historial            │
+                         │ reproductor HLS      │
+                         │ EPG                  │
+                         └──────────────────────┘
+```
+
+La APK NO debe conectarse directamente a PostgreSQL.
+
+La APK debe comunicarse exclusivamente con el backend mediante HTTPS.
+
+---
+
+# 2. MONOREPO
+
+Utilizar un monorepo.
+
+Estructura inicial:
+
+```text
+infitv/
+│
+├── apps/
+│   ├── mobile/
+│   └── admin/
+│
+├── packages/
+│   ├── types/
+│   ├── config/
+│   └── utils/
+│
+├── backend/
+│
+├── docker/
+│
+├── docs/
+│
+├── scripts/
+│
+├── .env.example
+├── docker-compose.yml
+├── package.json
+└── README.md
+```
+
+Utilizar TypeScript donde sea razonable.
+
+---
+
+# 3. BACKEND
+
+Utilizar:
+
+* Node.js
+* TypeScript
+* NestJS
+
+Base de datos:
+
+* PostgreSQL
+
+ORM:
+
+* Prisma
+
+API:
+
+* REST
+
+Documentación:
+
+* Swagger / OpenAPI
+
+Validación:
+
+* DTOs
+* class-validator
+* class-transformer
+
+Seguridad:
+
+* JWT para administración
+* tokens de sesión para clientes
+* bcrypt/argon2 para credenciales administrativas
+* rate limiting
+* CORS correctamente configurado
+* Helmet
+* validación estricta
+* logs
+
+---
+
+# 4. MODELO DE DATOS
+
+Crear como mínimo estas entidades:
+
+```text
+AdminUser
+Customer
+ActivationCode
+Device
+Plan
+Channel
+Country
+Category
+Favorite
+WatchHistory
+Session
+EPGProgram
+SystemSetting
+AuditLog
+```
+
+Relaciones:
+
+```text
+Customer
+   │
+   ├── ActivationCode
+   │
+   ├── Device
+   │
+   ├── Session
+   │
+   ├── Favorite
+   │
+   └── WatchHistory
+```
+
+---
+
+# 5. CLIENTES
+
+Un cliente NO necesita usuario y contraseña.
+
+El método de acceso principal será:
+
+```text
+Código de activación
+```
+
+Ejemplo:
+
+```text
+INFITV-3452-JFKR
+```
+
+El código será una credencial de activación y NO debe almacenarse en texto plano en la base de datos.
+
+Guardar un hash del código cuando sea posible.
+
+El código debe tener:
+
+* ID
+* hash
+* prefijo visible
+* fecha de creación
+* fecha de activación
+* fecha de vencimiento
+* plan
+* estado
+* límite de dispositivos
+* cliente asociado
+* metadata
+* última utilización
+
+Estados:
+
+```text
+PENDING
+ACTIVE
+EXPIRED
+SUSPENDED
+REVOKED
+```
+
+---
+
+# 6. GENERACIÓN DE CÓDIGOS
+
+Crear generador seguro.
+
+Formato:
+
+```text
+INFITV-XXXX-XXXX
+```
+
+Ejemplo:
+
+```text
+INFITV-7K4P-X92M
+```
+
+Usar caracteres fáciles de distinguir.
+
+Evitar:
+
+```text
+O / 0
+I / 1
+L / 1
+```
+
+Generar códigos criptográficamente aleatorios.
+
+NO utilizar:
+
+```ts
+Math.random()
+```
+
+para generar credenciales.
+
+---
+
+# 7. ACTIVACIÓN
+
+Flujo:
+
+```text
+APK
+ ↓
+Usuario introduce código
+ ↓
+POST /api/v1/auth/activate
+ ↓
+Backend valida código
+ ↓
+Verifica vencimiento
+ ↓
+Verifica estado
+ ↓
+Verifica límite de dispositivos
+ ↓
+Registra dispositivo
+ ↓
+Genera sesión
+ ↓
+Devuelve access token
+```
+
+Respuesta:
+
+```json
+{
+  "success": true,
+  "token": "...",
+  "expiresAt": "...",
+  "customer": {
+    "id": "...",
+    "plan": "...",
+    "expiresAt": "..."
+  }
+}
+```
+
+La APK debe guardar el token de forma segura.
+
+NO guardar tokens sensibles en AsyncStorage si existe una alternativa segura compatible con Expo.
+
+Utilizar SecureStore para secretos/sesiones.
+
+---
+
+# 8. VINCULACIÓN DE DISPOSITIVOS
+
+Un código puede tener:
+
+```text
+deviceLimit = 1
+```
+
+o:
+
+```text
+deviceLimit = 2
+```
+
+Cuando el primer dispositivo activa el código:
+
+```text
+Código
+ ↓
+Device A
+```
+
+Si intenta activar otro:
+
+```text
+Código
+ ↓
+Device B
+```
+
+el backend debe rechazarlo si se superó el límite.
+
+Mensaje:
+
+```text
+Este código ya alcanzó el límite de dispositivos.
+```
+
+Desde el panel administrativo debe ser posible:
+
+* ver dispositivo
+* ver última conexión
+* revocar dispositivo
+* desvincular dispositivo
+* cambiar límite
+* bloquear dispositivo
+
+NO utilizar únicamente un identificador fácilmente falsificable como mecanismo de seguridad.
+
+Usar una combinación razonable de:
+
+* instalación/app instance ID
+* token de dispositivo
+* sesión
+* metadata
+* controles server-side
+
+---
+
+# 9. EXPIRACIÓN
+
+El backend es la autoridad.
+
+La APK NO debe decidir por sí sola si una suscripción está activa.
+
+Cada request autenticada importante debe poder comprobar:
+
+```text
+customer.status
+customer.expiresAt
+session.status
+device.status
+```
+
+Cuando vence:
+
+```text
+ACTIVE
+   ↓
+EXPIRED
+```
+
+La aplicación debe mostrar:
+
+```text
+Tu acceso ha vencido.
+
+Contactá al administrador para renovarlo.
+```
+
+---
+
+# 10. PLANES
+
+Crear sistema de planes.
+
+Ejemplos:
+
+```text
+PRUEBA
+7 DÍAS
+15 DÍAS
+30 DÍAS
+90 DÍAS
+365 DÍAS
+```
+
+Cada plan puede tener:
+
+* nombre
+* duración
+* precio interno
+* límite de dispositivos
+* descripción
+* estado
+
+El precio NO debe estar necesariamente visible en la APK.
+
+---
+
+# 11. PANEL ADMINISTRATIVO
+
+Crear aplicación web moderna.
+
+Stack recomendado:
+
+* Next.js
+* TypeScript
+* Tailwind CSS
+* componentes accesibles
+* React Query/TanStack Query
+
+Dashboard:
+
+```text
+INFI TV ADMIN
+
+Clientes activos       125
+Clientes vencidos       18
+Códigos disponibles      42
+Dispositivos activos    137
+Canales                 8.542
+Streams funcionando     7.981
+```
+
+---
+
+# 12. PANEL — CLIENTES
+
+Página:
+
+```text
+/clientes
+```
+
+Funciones:
+
+* listar
+* buscar
+* filtrar
+* crear cliente
+* editar
+* suspender
+* reactivar
+* eliminar
+* renovar
+* ver dispositivos
+* ver sesiones
+* ver actividad
+
+Información:
+
+```text
+Cliente
+Plan
+Estado
+Vencimiento
+Dispositivos
+Última conexión
+```
+
+---
+
+# 13. PANEL — CÓDIGOS
+
+Página:
+
+```text
+/codigos
+```
+
+Funciones:
+
+* generar uno
+* generar múltiples
+* seleccionar plan
+* seleccionar duración
+* seleccionar límite de dispositivos
+* activar/desactivar
+* revocar
+* copiar código
+* exportar lista
+* buscar
+* filtrar
+
+Ejemplo:
+
+```text
+INFITV-7K4P-X92M
+
+PLAN: 30 días
+ESTADO: ACTIVO
+VENCE: 05/10/2026
+DISPOSITIVOS: 1/1
+```
+
+Al crear códigos, mostrar el código completo al administrador solamente cuando corresponda.
+
+---
+
+# 14. GENERACIÓN MASIVA
+
+Permitir:
+
+```text
+Generar 1
+Generar 10
+Generar 50
+Generar 100
+Generar 500
+```
+
+Debe evitarse cualquier colisión.
+
+Los códigos deben ser únicos.
+
+---
+
+# 15. PANEL — DISPOSITIVOS
+
+Mostrar:
+
+```text
+Cliente
+Dispositivo
+Plataforma
+Versión APK
+Última conexión
+IP aproximada si es necesaria para administración
+Estado
+```
+
+No almacenar información innecesaria ni datos sensibles.
+
+---
+
+# 16. PANEL — CANALES
+
+Mostrar catálogo IPTV.
+
+Funciones:
+
+* buscar
+* filtrar por país
+* filtrar por categoría
+* activar/desactivar canal
+* editar metadata
+* ocultar canal
+* marcar favorito global
+* revisar estado del stream
+
+---
+
+# 17. IPTV-ORG
+
+Fuente inicial:
+
+https://github.com/iptv-org/iptv
+
+La plataforma debe consumir las fuentes públicas de IPTV-org de manera responsable.
+
+NO copiar manualmente miles de URLs.
+
+Crear un servicio:
+
+```text
+IptvSyncService
+```
+
+Funciones:
+
+```text
+syncChannels()
+syncCountries()
+syncCategories()
+syncStreams()
+```
+
+Normalizar los datos a nuestro propio modelo.
+
+Ejemplo:
+
+```text
+IPTV-org
+    ↓
+Parser
+    ↓
+Validator
+    ↓
+Normalizer
+    ↓
+PostgreSQL
+    ↓
+API
+    ↓
+APK
+```
+
+---
+
+# 18. ACTUALIZACIÓN AUTOMÁTICA
+
+Crear job periódico.
+
+Por ejemplo:
+
+```text
+cada 6 horas
+```
+
+Proceso:
+
+```text
+descargar fuente
+↓
+validar
+↓
+comparar cambios
+↓
+actualizar canales
+↓
+registrar errores
+↓
+guardar timestamp
+```
+
+No borrar automáticamente canales simplemente porque una actualización temporal falló.
+
+Utilizar estrategia segura de sincronización.
+
+---
+
+# 19. HEALTH CHECK DE STREAMS
+
+Crear sistema opcional de comprobación.
+
+No probar miles de streams simultáneamente.
+
+Implementar:
+
+* rate limit
+* concurrencia controlada
+* timeout
+* reintentos
+* backoff
+
+Estados:
+
+```text
+ONLINE
+OFFLINE
+TIMEOUT
+UNKNOWN
+```
+
+Guardar:
+
+```text
+lastCheckedAt
+lastSuccessfulAt
+failureCount
+```
+
+No realizar comprobaciones que generen tráfico excesivo hacia terceros.
+
+---
+
+# 20. API DE CANALES
+
+Endpoints:
+
+```text
+GET /api/v1/channels
+GET /api/v1/channels/:id
+GET /api/v1/countries
+GET /api/v1/categories
+GET /api/v1/channels?country=AR
+GET /api/v1/channels?category=news
+GET /api/v1/search?q=telefe
+```
+
+Implementar paginación.
+
+NO devolver miles de canales innecesariamente en cada request.
+
+---
+
+# 21. APLICACIÓN ANDROID
+
+Stack:
+
+* React Native
+* Expo
+* TypeScript
+* Expo Router
+
+Objetivo:
+
+Android.
+
+La APK debe tener una experiencia moderna.
+
+---
+
+# 22. PRIMERA PANTALLA
+
+Mostrar solamente:
+
+```text
+           INFI TV
+
+     Ingresá tu código
+
+ [ INFITV-____-____ ]
+
+       [ ACTIVAR ]
+
+¿Necesitás un código?
+Contactá al administrador.
+```
+
+No mostrar usuario/contraseña.
+
+---
+
+# 23. LOGIN / SESIÓN
+
+Después de activar:
+
+```text
+Código
+ ↓
+Backend
+ ↓
+Token
+ ↓
+SecureStore
+ ↓
+Home
+```
+
+En próximos arranques:
+
+```text
+SecureStore
+ ↓
+validar sesión
+ ↓
+Home
+```
+
+Si la sesión expiró:
+
+```text
+Volver a activar
+```
+
+---
+
+# 24. HOME APP
+
+Diseño oscuro y moderno.
+
+Secciones:
+
+```text
+Inicio
+
+⭐ Favoritos
+
+🇦🇷 Argentina
+
+🇨🇱 Chile
+
+🌎 Internacional
+
+📰 Noticias
+
+⚽ Deportes
+
+🎬 Entretenimiento
+
+🔎 Buscar
+```
+
+---
+
+# 25. CANALES
+
+Cada tarjeta:
+
+```text
+┌─────────────────────┐
+│       LOGO          │
+│                     │
+│       TELEFE        │
+│                     │
+│       🇦🇷           │
+└─────────────────────┘
+```
+
+Al tocar:
+
+```text
+→ Player
+```
+
+---
+
+# 26. PLAYER
+
+Debe reproducir HLS:
+
+```text
+.m3u8
+```
+
+Estados:
+
+```text
+CONNECTING
+BUFFERING
+PLAYING
+PAUSED
+ERROR
+```
+
+Mostrar:
+
+* canal
+* logo
+* fullscreen
+* controles
+* volver
+* favorito
+
+Errores:
+
+```text
+No se pudo reproducir este canal.
+
+[ REINTENTAR ]
+```
+
+Nunca hacer crash por un stream defectuoso.
+
+---
+
+# 27. FAVORITOS
+
+Guardar favoritos en backend o localmente según diseño.
+
+Preferiblemente sincronizar con backend si queremos que el usuario pueda cambiar de dispositivo.
+
+Endpoint:
+
+```text
+GET /api/v1/me/favorites
+POST /api/v1/me/favorites/:channelId
+DELETE /api/v1/me/favorites/:channelId
+```
+
+---
+
+# 28. HISTORIAL
+
+Guardar últimos canales vistos.
+
+Máximo:
+
+```text
+20
+```
+
+Mostrar:
+
+```text
+Continuar viendo
+```
+
+---
+
+# 29. BÚSQUEDA
+
+Buscar:
+
+* nombre
+* país
+* categoría
+* idioma
+
+Debe utilizar búsqueda server-side para catálogos grandes.
+
+Debounce:
+
+```text
+250–400 ms
+```
+
+---
+
+# 30. EPG
+
+Preparar arquitectura para EPG.
+
+Si existe una fuente compatible:
+
+```text
+Programa actual
+Próximo programa
+Horario
+Descripción
+```
+
+La app debe funcionar aunque no exista EPG.
+
+---
+
+# 31. CACHE
+
+La aplicación debe:
+
+```text
+abrir
+ ↓
+mostrar caché
+ ↓
+actualizar en background
+```
+
+Si no hay Internet:
+
+```text
+mostrar catálogo cacheado
+```
+
+pero el backend seguirá siendo autoridad para las sesiones/licencias.
+
+---
+
+# 32. SEGURIDAD
+
+IMPORTANTE.
+
+Nunca poner:
+
+* secretos
+* API keys privadas
+* claves de PostgreSQL
+* JWT secret
+* credenciales del administrador
+* códigos maestros
+
+dentro de la APK.
+
+Todo secreto debe permanecer en backend.
+
+La APK debe considerarse un cliente potencialmente comprometible.
+
+---
+
+# 33. ADMIN AUTH
+
+El panel administrativo debe tener login independiente.
+
+Ejemplo:
+
+```text
+email
+password
+```
+
+Implementar:
+
+* hash seguro
+* JWT o sesión segura
+* refresh token si corresponde
+* logout
+* rate limit
+* protección contra brute force
+
+Preparar soporte para 2FA posteriormente.
+
+---
+
+# 34. ROLES
+
+Crear inicialmente:
+
+```text
+SUPER_ADMIN
+ADMIN
+OPERATOR
+```
+
+Permisos:
+
+```text
+SUPER_ADMIN
+→ todo
+
+ADMIN
+→ clientes
+→ códigos
+→ dispositivos
+→ canales
+
+OPERATOR
+→ consulta y operaciones limitadas
+```
+
+Implementar RBAC desde el principio aunque inicialmente exista solamente un administrador.
+
+---
+
+# 35. AUDITORÍA
+
+Registrar acciones administrativas importantes:
+
+```text
+admin creó código
+admin suspendió cliente
+admin renovó cliente
+admin eliminó dispositivo
+admin modificó canal
+admin cambió configuración
+```
+
+Guardar:
+
+```text
+actor
+action
+entity
+entityId
+timestamp
+metadata
+```
+
+---
+
+# 36. RATE LIMITING
+
+Aplicar límites especialmente en:
+
+```text
+POST /auth/activate
+POST /auth/refresh
+POST /admin/login
+```
+
+Evitar ataques de fuerza bruta sobre códigos.
+
+---
+
+# 37. PROTECCIÓN DE CÓDIGOS
+
+No permitir probar millones de códigos.
+
+Implementar:
+
+* rate limit por IP
+* rate limit por dispositivo
+* bloqueo temporal
+* logging
+* detección de abuso
+
+Nunca devolver información que permita enumerar códigos válidos.
+
+Ejemplo correcto:
+
+```text
+Código inválido o no disponible.
+```
+
+No:
+
+```text
+Código existe pero está vencido.
+```
+
+si esa diferencia facilita enumeración.
+
+---
+
+# 38. CLOUD / DEPLOYMENT
+
+Preparar todo para Docker.
+
+Servicios:
+
+```text
+backend
+postgres
+redis
+admin
+nginx
+```
+
+Redis será opcional inicialmente pero dejar arquitectura preparada.
+
+Docker Compose para desarrollo.
+
+Producción preparada para:
+
+```text
+VPS
+```
+
+---
+
+# 39. VARIABLES DE ENTORNO
+
+Crear:
+
+```text
+.env.example
+```
+
+Ejemplo:
+
+```env
+DATABASE_URL=
+JWT_SECRET=
+ADMIN_JWT_SECRET=
+API_URL=
+IPTV_SOURCE_URL=
+EPG_SOURCE_URL=
+REDIS_URL=
+```
+
+Nunca commitear `.env`.
+
+Agregar `.gitignore`.
+
+---
+
+# 40. NGINX
+
+Preparar configuración:
+
+```text
+Internet
+   ↓
+HTTPS
+   ↓
+Nginx
+   ├── /api → backend
+   └── / → admin
+```
+
+Configurar:
+
+* HTTPS
+* headers
+* compression
+* proxy
+* rate limiting básico
+
+---
+
+# 41. CLOUDFRONT
+
+NO utilizar CloudFront como proxy de todos los streams inicialmente.
+
+La arquitectura debe permitir incorporarlo posteriormente.
+
+No asumir que CloudFront debe retransmitir IPTV.
+
+Si en el futuro se utiliza:
+
+```text
+Stream autorizado
+ ↓
+Backend/proxy
+ ↓
+CloudFront
+ ↓
+usuarios
+```
+
+pero únicamente cuando sea necesario y compatible con los derechos/condiciones de la fuente.
+
+---
+
+# 42. LICENCIAS Y DERECHOS
+
+El proyecto debe distinguir claramente:
+
+```text
+software de la plataforma
+```
+
+de:
+
+```text
+contenido/streams de terceros
+```
+
+No implementar mecanismos para:
+
+* saltarse DRM
+* saltarse autenticación
+* evadir paywalls
+* romper restricciones de acceso
+* extraer streams privados
+
+Utilizar únicamente fuentes que puedan utilizarse legítimamente y respetar las condiciones aplicables.
+
+---
+
+# 43. TELEMETRÍA
+
+Crear métricas básicas:
+
+```text
+usuarios activos
+sesiones activas
+activaciones
+canales reproducidos
+errores de reproducción
+última conexión
+```
+
+Evitar recopilar información personal innecesaria.
+
+---
+
+# 44. API VERSIONADA
+
+Utilizar:
+
+```text
+/api/v1/
+```
+
+Preparar:
+
+```text
+/api/v2/
+```
+
+posteriormente.
+
+---
+
+# 45. RESPUESTAS API
+
+Utilizar formato consistente.
+
+Éxito:
+
+```json
+{
+  "success": true,
+  "data": {}
+}
+```
+
+Error:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "INVALID_ACTIVATION_CODE",
+    "message": "Código inválido."
+  }
+}
+```
+
+---
+
+# 46. TIPOS COMPARTIDOS
+
+Crear:
+
+```text
+packages/types
+```
+
+para compartir interfaces entre:
+
+```text
+backend
+admin
+mobile
+```
+
+Ejemplos:
+
+```ts
+Channel
+Customer
+ActivationCode
+Device
+Plan
+Session
+EPGProgram
+```
+
+Evitar duplicar tipos.
+
+---
+
+# 47. TESTS
+
+Backend:
+
+* unit tests
+* integration tests
+* auth tests
+* activation tests
+* expiration tests
+* device-limit tests
+
+Mobile:
+
+* tests de componentes importantes
+* lógica de sesión
+* parsing
+* estados de reproducción
+
+Admin:
+
+* tests de funciones críticas
+
+---
+
+# 48. CASOS QUE DEBEN FUNCIONAR
+
+### Caso 1
+
+Código nuevo:
+
+```text
+INFITV-XXXX-XXXX
+```
+
+Resultado:
+
+```text
+ACTIVO
+```
+
+---
+
+### Caso 2
+
+Código vencido:
+
+```text
+EXPIRED
+```
+
+Resultado:
+
+```text
+Acceso vencido.
+```
+
+---
+
+### Caso 3
+
+Código suspendido:
+
+```text
+SUSPENDED
+```
+
+Resultado:
+
+```text
+Acceso suspendido.
+```
+
+---
+
+### Caso 4
+
+Segundo dispositivo:
+
+```text
+deviceLimit = 1
+```
+
+Resultado:
+
+```text
+Límite alcanzado.
+```
+
+---
+
+### Caso 5
+
+Admin elimina dispositivo.
+
+Resultado:
+
+```text
+El cliente puede volver a activar en otro dispositivo.
+```
+
+---
+
+### Caso 6
+
+Stream caído.
+
+Resultado:
+
+```text
+Canal no disponible.
+```
+
+La APK continúa funcionando.
+
+---
+
+### Caso 7
+
+IPTV-org temporalmente inaccesible.
+
+Resultado:
+
+```text
+El catálogo existente permanece disponible.
+```
+
+---
+
+### Caso 8
+
+Internet del usuario se corta.
+
+Resultado:
+
+```text
+La app no crashea.
+```
+
+---
+
+# 49. UI/UX ADMIN
+
+Diseño profesional.
+
+Sidebar:
+
+```text
+INFI TV
+
+Dashboard
+Clientes
+Códigos
+Planes
+Dispositivos
+Canales
+Países
+Categorías
+EPG
+Logs
+Configuración
+```
+
+Utilizar tablas con:
+
+* búsqueda
+* filtros
+* paginación
+* acciones
+* confirmación antes de acciones destructivas
+
+---
+
+# 50. UI/UX MOBILE
+
+Bottom navigation:
+
+```text
+Inicio
+Canales
+Favoritos
+Buscar
+Más
+```
+
+No sobrecargar la interfaz.
+
+Animaciones suaves.
+
+Skeleton loading.
+
+Empty states.
+
+Error states.
+
+Dark mode como diseño principal.
+
+---
+
+# 51. CONFIGURACIÓN REMOTA
+
+Preparar endpoint:
+
+```text
+GET /api/v1/app/config
+```
+
+Para poder controlar:
+
+```text
+minimumAppVersion
+maintenanceMode
+announcement
+featureFlags
+catalogVersion
+```
+
+Esto permite actualizar ciertos comportamientos sin publicar una nueva APK.
+
+---
+
+# 52. ACTUALIZACIÓN OBLIGATORIA
+
+Si:
+
+```text
+currentVersion < minimumAppVersion
+```
+
+mostrar:
+
+```text
+Hay una nueva versión disponible.
+
+Debes actualizar la aplicación para continuar.
+
+[ ACTUALIZAR ]
+```
+
+---
+
+# 53. MANTENIMIENTO
+
+Desde el panel:
+
+```text
+Modo mantenimiento
+```
+
+Si está activo:
+
+```text
+INFI TV está temporalmente en mantenimiento.
+```
+
+Permitir mensaje personalizado.
+
+---
+
+# 54. DOCUMENTACIÓN
+
+Crear:
+
+```text
+docs/
+```
+
+Con:
+
+```text
+architecture.md
+backend.md
+database.md
+api.md
+mobile.md
+admin.md
+deployment.md
+security.md
+iptv-sync.md
+troubleshooting.md
+```
+
+---
+
+# 55. README
+
+El README debe explicar:
+
+* requisitos
+* instalación
+* desarrollo
+* Docker
+* variables de entorno
+* migraciones
+* seed
+* ejecución backend
+* ejecución admin
+* ejecución mobile
+* build Android
+* deployment
+
+---
+
+# 56. SEED
+
+Crear datos de desarrollo.
+
+Ejemplo:
+
+```text
+Admin demo
+Plan 7 días
+Plan 30 días
+Plan 90 días
+10 códigos demo
+```
+
+IMPORTANTE:
+
+Los datos demo solamente deben existir en entorno de desarrollo.
+
+---
+
+# 57. MIGRACIONES
+
+Utilizar Prisma migrations.
+
+Nunca modificar la base de producción manualmente.
+
+Comandos documentados.
+
+---
+
+# 58. LOGGING
+
+Implementar logs estructurados.
+
+Separar:
+
+```text
+INFO
+WARN
+ERROR
+SECURITY
+AUDIT
+```
+
+No escribir secretos en logs.
+
+Nunca loguear:
+
+* passwords
+* tokens completos
+* códigos completos
+* API keys
+
+---
+
+# 59. ERROR HANDLING
+
+Crear manejo centralizado.
+
+Backend:
+
+```text
+Exception filters
+```
+
+Mobile:
+
+```text
+Error boundaries
+```
+
+Admin:
+
+```text
+Global error handling
+```
+
+---
+
+# 60. CALIDAD DEL CÓDIGO
+
+Reglas:
+
+* TypeScript strict
+* funciones pequeñas
+* nombres claros
+* componentes reutilizables
+* sin duplicación innecesaria
+* sin secretos
+* sin código muerto
+* sin dependencias innecesarias
+
+---
+
+# 61. GIT
+
+Crear estrategia:
+
+```text
+main
+develop
+feature/*
+fix/*
+```
+
+Commits descriptivos.
+
+Ejemplos:
+
+```text
+feat: add activation code system
+feat: add IPTV synchronization
+feat: add mobile player
+fix: handle expired sessions
+```
+
+---
+
+# 62. CI/CD
+
+Preparar GitHub Actions para:
+
+```text
+lint
+typecheck
+tests
+build
+```
+
+Backend:
+
+```text
+npm run lint
+npm run typecheck
+npm test
+```
+
+Admin:
+
+```text
+npm run lint
+npm run build
+```
+
+Mobile:
+
+```text
+npx expo-doctor
+```
+
+---
+
+# 63. APK
+
+Preparar EAS Build.
+
+Configurar:
+
+```text
+eas.json
+```
+
+Build de desarrollo:
+
+```text
+development
+```
+
+Preview:
+
+```text
+preview
+```
+
+Producción:
+
+```text
+production
+```
+
+Generar:
+
+```text
+APK
+AAB
+```
+
+---
+
+# 64. PERFORMANCE
+
+Mobile:
+
+* FlatList
+* virtualización
+* memoización
+* imágenes cacheadas
+* lazy loading
+* debounce
+* evitar renders innecesarios
+
+Backend:
+
+* índices PostgreSQL
+* paginación
+* caching donde tenga sentido
+* queries optimizadas
+
+---
+
+# 65. ESCALABILIDAD
+
+Aunque inicialmente pueda haber solamente:
+
+```text
+30–100 usuarios
+```
+
+la arquitectura no debe estar limitada artificialmente a esa cantidad.
+
+Separar:
+
+```text
+API
+DB
+Admin
+Mobile
+workers
+```
+
+para poder escalar posteriormente.
+
+---
+
+# 66. IMPORTANTE SOBRE LOS STREAMS
+
+La plataforma NO debe asumir que IPTV-org garantiza disponibilidad.
+
+Un canal puede:
+
+* desaparecer
+* cambiar URL
+* cambiar calidad
+* estar offline
+* tener geobloqueo
+* tener restricciones
+* dejar de funcionar
+
+La app debe manejar estos escenarios elegantemente.
+
+---
+
+# 67. EXPERIENCIA FINAL DEL CLIENTE
+
+El flujo completo debe sentirse así:
+
+```text
+INSTALA APK
+     ↓
+ABRE INFI TV
+     ↓
+INTRODUCE
+INFITV-XXXX-XXXX
+     ↓
+ACTIVAR
+     ↓
+VALIDACIÓN
+     ↓
+HOME
+     ↓
+🇦🇷 ARGENTINA
+     ↓
+SELECCIONA CANAL
+     ↓
+PLAYER
+     ↓
+▶ REPRODUCIENDO
+```
+
+Sin:
+
+```text
+usuario
+password
+email
+registro
+```
+
+para el cliente final.
+
+---
+
+# 68. EXPERIENCIA DEL ADMINISTRADOR
+
+```text
+LOGIN ADMIN
+     ↓
+DASHBOARD
+     ↓
+GENERAR CÓDIGO
+     ↓
+INFITV-7K4P-X92M
+     ↓
+ENTREGAR AL CLIENTE
+     ↓
+CLIENTE ACTIVA
+     ↓
+PANEL MUESTRA
+     ↓
+ACTIVO
+     ↓
+DISPOSITIVO 1/1
+     ↓
+VENCE EN 30 DÍAS
+```
+
+---
+
+# 69. ORDEN DE IMPLEMENTACIÓN
+
+Implementar EXACTAMENTE en este orden:
+
+## FASE 1
+
+Arquitectura del monorepo.
+
+## FASE 2
+
+Backend + PostgreSQL + Prisma.
+
+## FASE 3
+
+Admin authentication + RBAC.
+
+## FASE 4
+
+Clientes + planes.
+
+## FASE 5
+
+Sistema completo de códigos.
+
+## FASE 6
+
+Dispositivos + sesiones.
+
+## FASE 7
+
+Panel administrativo.
+
+## FASE 8
+
+Integración IPTV-org.
+
+## FASE 9
+
+API de canales.
+
+## FASE 10
+
+Proyecto React Native + Expo.
+
+## FASE 11
+
+Login mediante código.
+
+## FASE 12
+
+Home + catálogo.
+
+## FASE 13
+
+Favoritos + historial.
+
+## FASE 14
+
+Reproductor HLS.
+
+## FASE 15
+
+EPG.
+
+## FASE 16
+
+Cache + offline.
+
+## FASE 17
+
+Estadísticas + logs.
+
+## FASE 18
+
+Seguridad y rate limiting.
+
+## FASE 19
+
+Docker + Nginx.
+
+## FASE 20
+
+Tests.
+
+## FASE 21
+
+CI/CD.
+
+## FASE 22
+
+EAS Build.
+
+## FASE 23
+
+Deployment.
+
+---
+
+# 70. REGLA FINAL DE DESARROLLO
+
+No avanzar automáticamente a la siguiente fase si la fase actual no funciona.
+
+Después de cada fase:
+
+1. ejecutar instalación
+2. ejecutar typecheck
+3. ejecutar lint
+4. ejecutar tests
+5. verificar imports
+6. verificar variables de entorno
+7. verificar migraciones
+8. revisar errores
+9. corregirlos
+10. documentar lo realizado
+
+Al finalizar cada fase mostrar:
+
+```text
+FASE X COMPLETADA
+
+Archivos creados:
+...
+
+Archivos modificados:
+...
+
+Dependencias:
+...
+
+Comandos ejecutados:
+...
+
+Tests:
+...
+
+Estado:
+PASS / FAIL
+
+Siguiente fase:
+...
+```
+
+El objetivo no es producir la mayor cantidad de código posible.
+
+El objetivo es producir un sistema **real, mantenible, seguro, funcional y desplegable**.
+
+Prioridad:
+
+```text
+1. Correctitud
+2. Seguridad
+3. Estabilidad
+4. Mantenibilidad
+5. Rendimiento
+6. UX
+7. Escalabilidad
+```
+
+No sacrificar las primeras prioridades para implementar funcionalidades rápidamente.
