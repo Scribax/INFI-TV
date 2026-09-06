@@ -166,3 +166,45 @@ export async function fetchAnimeEpisodes(id: string): Promise<AnimeEpisode[]> {
   const text = await res.text();
   return parseM3U(text);
 }
+
+export interface AnimeSeries {
+  identifier: string;
+  name: string;
+}
+
+/**
+ * Busca TODAS las colecciones de anime latino/español en archive.org
+ * (la fuente más grande de series completas con mp4 directos). Ordenadas
+ * por descargas. No usa Xtream ni scrapea sitios frágiles.
+ */
+export async function searchArchiveAnime(): Promise<AnimeSeries[]> {
+  const q = encodeURIComponent(
+    "(anime) AND (latino OR español OR castellano OR doblaje)",
+  );
+  const url =
+    `https://archive.org/advancedsearch.php?q=${q}` +
+    `&fl[]=identifier&fl[]=title&rows=300&output=json&sort[]=downloads+desc`;
+  const res = await fetch(url);
+  const json = await res.json();
+  const docs: { identifier?: string; title?: string }[] =
+    json.response?.docs ?? [];
+  return docs
+    .filter((d) => d.identifier !== undefined && d.title !== undefined)
+    .map((d) => ({ identifier: d.identifier as string, name: d.title as string }));
+}
+
+/** Episodios .mp4 de una colección de archive.org. */
+export async function fetchArchiveEpisodes(
+  identifier: string,
+): Promise<AnimeEpisode[]> {
+  const res = await fetch(`https://archive.org/metadata/${identifier}`);
+  const md = await res.json();
+  const files: { name?: string }[] = md.files ?? [];
+  return files
+    .filter((f) => f.name?.toLowerCase().endsWith(".mp4"))
+    .filter((f) => !f.name?.toLowerCase().endsWith(".ia.mp4"))
+    .map((f) => ({
+      name: (f.name as string).replace(/\.mp4$/i, ""),
+      url: `https://archive.org/download/${identifier}/${encodeURIComponent(f.name as string)}`,
+    }));
+}
