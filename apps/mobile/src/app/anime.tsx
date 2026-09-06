@@ -12,7 +12,7 @@ import {
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import { ArrowLeft, ChevronRight, Search } from "lucide-react-native";
+import { ArrowLeft, ChevronRight, Search, Sparkles } from "lucide-react-native";
 import { useChannels } from "@/hooks/use-channels";
 import { ChannelCard } from "@/components/channel-card";
 import { ANIME_TITLES, ARCHIVE_ANIME_SERIES } from "@/lib/anime";
@@ -130,6 +130,16 @@ export default function AnimeScreen() {
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <>
+            {/* Anime moderno (Miruro, m3u8 en vivo) */}
+            <Pressable
+              style={({ pressed }) => [styles.modernBtn, pressed && styles.pressed]}
+              onPress={() => router.push("/anime-moderno")}
+            >
+              <Sparkles size={16} color="#FFFFFF" />
+              <Text style={styles.modernBtnText}>Anime moderno (Record of Ragnarok, etc.)</Text>
+              <ChevronRight size={16} color="#FFFFFF" />
+            </Pressable>
+
             {/* Películas y series (GitHub) */}
             <Text style={styles.sectionTitle}>Películas y series</Text>
             <ScrollView
@@ -227,6 +237,24 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: 40,
+  },
+  modernBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    backgroundColor: colors.brand,
+  },
+  modernBtnText: {
+    flex: 1,
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
+    fontFamily: fonts.bold,
   },
   sectionTitle: {
     color: colors.text,
