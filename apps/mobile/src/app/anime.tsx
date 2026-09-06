@@ -15,8 +15,8 @@ import { Image } from "expo-image";
 import { ArrowLeft, ChevronRight, Search } from "lucide-react-native";
 import { useChannels } from "@/hooks/use-channels";
 import { ChannelCard } from "@/components/channel-card";
-import { ANIME_TITLES, searchArchiveAnime } from "@/lib/anime";
-import type { AnimeSeries, AnimeTitle } from "@/lib/anime";
+import { ANIME_PLAYLISTS, ANIME_TITLES, fetchPlaylistTitles, searchArchiveAnime } from "@/lib/anime";
+import type { AnimeEpisode, AnimeSeries, AnimeTitle } from "@/lib/anime";
 import { colors, fonts } from "@/constants/theme";
 
 function AnimePoster({
@@ -98,6 +98,24 @@ export default function AnimeScreen() {
     };
   }, []);
 
+  const [playlistItems, setPlaylistItems] = useState<
+    Record<string, AnimeEpisode[]>
+  >({});
+
+  useEffect(() => {
+    let alive = true;
+    ANIME_PLAYLISTS.forEach((pl) => {
+      fetchPlaylistTitles(pl.url)
+        .then((items) => {
+          if (alive) setPlaylistItems((prev) => ({ ...prev, [pl.id]: items }));
+        })
+        .catch(() => {});
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const filteredSeries =
     query.trim() === ""
       ? series
@@ -151,6 +169,59 @@ export default function AnimeScreen() {
                 <AnimePoster key={t.id} title={t} onPress={() => openTitle(t.id)} />
               ))}
             </ScrollView>
+
+            {/* Películas curadas (listas M3U con covers) */}
+            {ANIME_PLAYLISTS.map((pl) => {
+              const items = playlistItems[pl.id] ?? [];
+              if (items.length === 0) return null;
+              return (
+                <View key={pl.id}>
+                  <Text style={styles.sectionTitle}>{pl.name}</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.row}
+                  >
+                    {items.map((it, idx) => (
+                      <Pressable
+                        key={idx}
+                        style={({ pressed }) => [
+                          styles.playCard,
+                          pressed && styles.pressed,
+                        ]}
+                        onPress={() =>
+                          router.push({
+                            pathname: "/anime/play",
+                            params: {
+                              url: encodeURIComponent(it.url),
+                              title: it.name,
+                            },
+                          })
+                        }
+                      >
+                        {it.cover !== null && it.cover !== undefined ? (
+                          <Image
+                            source={{ uri: it.cover }}
+                            style={styles.playPoster}
+                            contentFit="cover"
+                            transition={150}
+                          />
+                        ) : (
+                          <View style={[styles.playPoster, styles.posterFallback]}>
+                            <Text style={styles.posterInitial}>
+                              {it.name.charAt(0)}
+                            </Text>
+                          </View>
+                        )}
+                        <Text style={styles.posterTitle} numberOfLines={2}>
+                          {it.name}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              );
+            })}
 
             {/* Canales en vivo */}
             <Text style={styles.sectionTitle}>Canales en vivo</Text>
@@ -277,6 +348,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     fontFamily: fonts.semibold,
+  },
+  playCard: {
+    width: 120,
+    gap: 6,
+  },
+  playPoster: {
+    width: 120,
+    height: 180,
+    borderRadius: 10,
+    backgroundColor: colors.surfaceRaised,
   },
   channelItem: {
     width: 140,

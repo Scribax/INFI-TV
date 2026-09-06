@@ -134,6 +134,7 @@ export function getAnimeTitle(id: string): AnimeTitle | undefined {
 export interface AnimeEpisode {
   name: string;
   url: string;
+  cover?: string | null;
 }
 
 /** Parsea una lista M3U (no HLS): líneas #EXTINF + URL de .mp4. */
@@ -146,9 +147,14 @@ export function parseM3U(text: string): AnimeEpisode[] {
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].startsWith("#EXTINF")) {
       const name = lines[i].split(",").slice(1).join(",").trim();
+      const logo = lines[i].match(/tvg-logo="([^"]+)"/);
       const url = lines[i + 1] ?? "";
       if (url.startsWith("http")) {
-        episodes.push({ name: name || url, url });
+        episodes.push({
+          name: name || url,
+          url,
+          cover: logo !== null ? logo[1] : null,
+        });
       }
       i++;
     }
@@ -212,4 +218,39 @@ export async function fetchArchiveEpisodes(
       name: (f.name as string).replace(/\.mp4$/i, ""),
       url: `https://archive.org/download/${identifier}/${encodeURIComponent(f.name as string)}`,
     }));
+}
+
+export interface AnimePlaylist {
+  id: string;
+  name: string;
+  url: string;
+}
+
+/**
+ * Listas M3U curadas de películas de anime latino (covers de TMDB + streams
+ * de archive.org). Fuente: mametchikitty/Listas-IPTV.
+ */
+export const ANIME_PLAYLISTS: AnimePlaylist[] = [
+  {
+    id: "ghibli",
+    name: "Studio Ghibli (Latino)",
+    url: "https://mametchikitty.github.io/Listas-IPTV/studio-ghibli-latino.m3u",
+  },
+  {
+    id: "dibujos",
+    name: "Dibujos animados",
+    url: "https://mametchikitty.github.io/Listas-IPTV/dibujos-animados.m3u",
+  },
+  {
+    id: "peliculas",
+    name: "Películas",
+    url: "https://mametchikitty.github.io/Listas-IPTV/peliculas.m3u",
+  },
+];
+
+/** Descarga y parsea una lista M3U de películas con covers. */
+export async function fetchPlaylistTitles(url: string): Promise<AnimeEpisode[]> {
+  const res = await fetch(url);
+  const text = await res.text();
+  return parseM3U(text);
 }
