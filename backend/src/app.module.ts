@@ -24,6 +24,7 @@ import { ChannelsModule } from "./channels/channels.module";
 import { MeModule } from "./me/me.module";
 import { EpgModule } from "./epg/epg.module";
 import { VodModule } from "./vod/vod.module";
+import { AnimeModule } from "./anime/anime.module";
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { VodModule } from "./vod/vod.module";
     MeModule,
     EpgModule,
     VodModule,
+    AnimeModule,
     ScheduleModule.forRoot(),
   ],
   providers: [
