@@ -170,6 +170,7 @@ export async function fetchAnimeEpisodes(id: string): Promise<AnimeEpisode[]> {
 export interface AnimeSeries {
   identifier: string;
   name: string;
+  cover: string;
 }
 
 /**
@@ -190,7 +191,11 @@ export async function searchArchiveAnime(): Promise<AnimeSeries[]> {
     json.response?.docs ?? [];
   return docs
     .filter((d) => d.identifier !== undefined && d.title !== undefined)
-    .map((d) => ({ identifier: d.identifier as string, name: d.title as string }));
+    .map((d) => ({
+      identifier: d.identifier as string,
+      name: d.title as string,
+      cover: `https://archive.org/services/img/${d.identifier}`,
+    }));
 }
 
 /** Episodios .mp4 de una colección de archive.org. */

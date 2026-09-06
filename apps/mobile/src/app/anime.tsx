@@ -50,7 +50,7 @@ function AnimePoster({
   );
 }
 
-function SeriesRow({
+function SeriesCard({
   series,
   onPress,
 }: {
@@ -59,13 +59,18 @@ function SeriesRow({
 }) {
   return (
     <Pressable
-      style={({ pressed }) => [styles.seriesRow, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.seriesCard, pressed && styles.pressed]}
       onPress={onPress}
     >
-      <Text style={styles.seriesName} numberOfLines={1}>
+      <Image
+        source={{ uri: series.cover }}
+        style={styles.seriesPoster}
+        contentFit="cover"
+        transition={150}
+      />
+      <Text style={styles.seriesName} numberOfLines={2}>
         {series.name}
       </Text>
-      <ChevronRight size={16} color={colors.textFaint} />
     </Pressable>
   );
 }
@@ -129,6 +134,8 @@ export default function AnimeScreen() {
       <FlatList
         data={filteredSeries}
         keyExtractor={(s) => s.identifier}
+        numColumns={2}
+        columnWrapperStyle={styles.gridRow}
         contentContainerStyle={styles.listContent}
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
@@ -189,7 +196,7 @@ export default function AnimeScreen() {
           </>
         }
         renderItem={({ item }) => (
-          <SeriesRow series={item} onPress={() => openSeries(item)} />
+          <SeriesCard series={item} onPress={() => openSeries(item)} />
         )}
         ListEmptyComponent={
           loadingSeries ? null : (
@@ -299,7 +306,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     marginHorizontal: 16,
-    marginBottom: 8,
+    marginBottom: 12,
     paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: 1,
@@ -313,24 +320,26 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: fonts.regular,
   },
-  seriesRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginHorizontal: 16,
-    marginBottom: 8,
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+  gridRow: {
+    gap: 10,
+    paddingHorizontal: 16,
+  },
+  seriesCard: {
+    flex: 1,
+    gap: 6,
+    marginBottom: 14,
+  },
+  seriesPoster: {
+    width: "100%",
+    aspectRatio: 16 / 9,
+    borderRadius: 10,
+    backgroundColor: colors.surfaceRaised,
   },
   seriesName: {
-    flex: 1,
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "500",
-    fontFamily: fonts.medium,
+    fontSize: 12,
+    fontWeight: "600",
+    fontFamily: fonts.semibold,
   },
   empty: {
     color: colors.textMuted,
