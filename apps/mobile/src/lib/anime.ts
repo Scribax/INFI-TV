@@ -184,25 +184,31 @@ export interface AnimeSeries {
  * (la fuente más grande de series completas con mp4 directos). Ordenadas
  * por descargas. No usa Xtream ni scrapea sitios frágiles.
  */
-export async function searchArchiveAnime(): Promise<AnimeSeries[]> {
-  const q = encodeURIComponent(
-    "(anime) AND (latino OR español OR castellano OR doblaje)",
-  );
-  const url =
-    `https://archive.org/advancedsearch.php?q=${q}` +
-    `&fl[]=identifier&fl[]=title&rows=300&output=json&sort[]=downloads+desc`;
-  const res = await fetch(url);
-  const json = await res.json();
-  const docs: { identifier?: string; title?: string }[] =
-    json.response?.docs ?? [];
-  return docs
-    .filter((d) => d.identifier !== undefined && d.title !== undefined)
-    .map((d) => ({
-      identifier: d.identifier as string,
-      name: d.title as string,
-      cover: `https://archive.org/services/img/${d.identifier}`,
-    }));
-}
+/**
+ * Animes reconocidos en archive.org (curado a mano: solo series legítimas en
+ * español latino). Reemplaza la búsqueda abierta, que traía bootlegs/ruido.
+ */
+export const ARCHIVE_ANIME_SERIES: AnimeSeries[] = [
+  { identifier: "naruto-completo", name: "Naruto" },
+  { identifier: "bleach-latino", name: "Bleach" },
+  { identifier: "ranma-nibunnoichi-espanol-latino-y-japones", name: "Ranma ½" },
+  { identifier: "sakura-card-captor-en-espanol-latino", name: "Sakura Card Captor" },
+  { identifier: "samurai-champloo-espanol", name: "Samurai Champloo" },
+  { identifier: "digimon-adventure-espanol-latino-etc-tv-rip-2017", name: "Digimon Adventure" },
+  { identifier: "digimon-adventure-02-espanol-latino-etc-tv-rip-2017", name: "Digimon Adventure 02" },
+  { identifier: "magical-doremi-en-espanol-latino", name: "Magical Doremi" },
+  { identifier: "magical-doremi-sharp-en-espanol-latino", name: "Magical Doremi Sharp" },
+  { identifier: "utena-espanol-latino", name: "Utena" },
+  { identifier: "mew-mew-power-espanol-latino-hq", name: "Mew Mew Power" },
+  { identifier: "futari-wa-precure-2626-espanol-latino-472p", name: "Pretty Cure" },
+  { identifier: "dragon-ball-z-kai-episodios-1-al-17-latino-ingles-cut-ost-yamamoto-oficial", name: "Dragon Ball Z Kai" },
+  { identifier: "dgc-nyo-latino", name: "Di Gi Charat Nyo" },
+  { identifier: "tpo-neon-genesis-evangelion-05-trapo-2019-universo-anime", name: "Neon Genesis Evangelion" },
+  { identifier: "kirbydelasestrellasdoblaje", name: "Kirby" },
+  { identifier: "attack-on-titan-season-3-latino_202206", name: "Attack on Titan" },
+  { identifier: "yu-yu-hakusho-latin", name: "Yu Yu Hakusho" },
+  { identifier: "pokemon-viajes-capitulo-100-sub-espanol", name: "Pokémon Viajes" },
+].map((s) => ({ ...s, cover: `https://archive.org/services/img/${s.identifier}` }));
 
 /** Episodios .mp4 de una colección de archive.org. */
 export async function fetchArchiveEpisodes(
@@ -218,39 +224,4 @@ export async function fetchArchiveEpisodes(
       name: (f.name as string).replace(/\.mp4$/i, ""),
       url: `https://archive.org/download/${identifier}/${encodeURIComponent(f.name as string)}`,
     }));
-}
-
-export interface AnimePlaylist {
-  id: string;
-  name: string;
-  url: string;
-}
-
-/**
- * Listas M3U curadas de películas de anime latino (covers de TMDB + streams
- * de archive.org). Fuente: mametchikitty/Listas-IPTV.
- */
-export const ANIME_PLAYLISTS: AnimePlaylist[] = [
-  {
-    id: "ghibli",
-    name: "Studio Ghibli (Latino)",
-    url: "https://mametchikitty.github.io/Listas-IPTV/studio-ghibli-latino.m3u",
-  },
-  {
-    id: "dibujos",
-    name: "Dibujos animados",
-    url: "https://mametchikitty.github.io/Listas-IPTV/dibujos-animados.m3u",
-  },
-  {
-    id: "peliculas",
-    name: "Películas",
-    url: "https://mametchikitty.github.io/Listas-IPTV/peliculas.m3u",
-  },
-];
-
-/** Descarga y parsea una lista M3U de películas con covers. */
-export async function fetchPlaylistTitles(url: string): Promise<AnimeEpisode[]> {
-  const res = await fetch(url);
-  const text = await res.text();
-  return parseM3U(text);
 }
