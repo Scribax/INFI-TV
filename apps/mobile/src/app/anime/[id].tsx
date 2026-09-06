@@ -1,9 +1,18 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { ArrowLeft } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getAnimeTitle } from "@/lib/anime";
+import { fetchAnimeEpisodes, getAnimeTitle } from "@/lib/anime";
+import type { AnimeEpisode } from "@/lib/anime";
 import { colors, fonts } from "@/constants/theme";
 
 function Player({ uri }: { uri: string }) {
@@ -21,12 +30,36 @@ function Player({ uri }: { uri: string }) {
   );
 }
 
-/** Reproductor de anime on-demand (stream HLS directo de GitHub). */
+/** Reproductor de anime on-demand: lista de episodios (mp4 de archive.org). */
 export default function AnimeWatchScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const title = getAnimeTitle(id ?? "");
+  const [episodes, setEpisodes] = useState<AnimeEpisode[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [current, setCurrent] = useState<AnimeEpisode | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    fetchAnimeEpisodes(id ?? "")
+      .then((eps) => {
+        if (!alive) return;
+        setEpisodes(eps);
+        setLoading(false);
+        if (eps.length > 0) setCurrent(eps[0]);
+      })
+      .catch((e) => {
+        if (!alive) return;
+        setLoading(false);
+        setError(e instanceof Error ? e.message : "Error al cargar los episodios.");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [id]);
 
   return (
     <View style={styles.container}>
@@ -40,13 +73,45 @@ export default function AnimeWatchScreen() {
         <View style={styles.backBtn} />
       </View>
 
-      {title !== undefined ? (
-        <Player uri={title.stream} />
+      {current !== null ? (
+        <Player key={current.url} uri={current.url} />
+      ) : loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator color={colors.brand} size="large" />
+        </View>
       ) : (
         <View style={styles.center}>
-          <Text style={styles.error}>No se encontró este título.</Text>
+          <Text style={styles.muted}>
+            {error ?? "Sin episodios disponibles."}
+          </Text>
         </View>
       )}
+
+      <FlatList
+        data={episodes}
+        keyExtractor={(e, i) => `${i}-${e.url}`}
+        contentContainerStyle={styles.listContent}
+        renderItem={({ item, index }) => {
+          const active = current?.url === item.url;
+          return (
+            <Pressable
+              style={[styles.epRow, active && styles.epActive]}
+              onPress={() => setCurrent(item)}
+            >
+              <Text style={[styles.epNum, active && styles.epNumActive]}>
+                {String(index + 1).padStart(2, "0")}
+              </Text>
+              <Text
+                style={[styles.epName, active && styles.epNameActive]}
+                numberOfLines={2}
+              >
+                {item.name}
+              </Text>
+              {active && <Text style={styles.epPlaying}>▶</Text>}
+            </Pressable>
+          );
+        }}
+      />
     </View>
   );
 }
@@ -80,19 +145,65 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
   },
   video: {
-    flex: 1,
+    width: "100%",
+    aspectRatio: 16 / 9,
     backgroundColor: "#000",
   },
   center: {
-    flex: 1,
+    aspectRatio: 16 / 9,
+    width: "100%",
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
+    backgroundColor: "#000",
   },
-  error: {
+  muted: {
     color: colors.textMuted,
     fontSize: 14,
     textAlign: "center",
+    paddingHorizontal: 24,
     fontFamily: fonts.regular,
+  },
+  listContent: {
+    padding: 12,
+    paddingBottom: 40,
+    gap: 8,
+  },
+  epRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  epActive: {
+    borderColor: colors.brand,
+    backgroundColor: colors.surfaceRaised,
+  },
+  epNum: {
+    color: colors.textFaint,
+    fontSize: 13,
+    fontWeight: "700",
+    fontFamily: fonts.bold,
+    fontVariant: ["tabular-nums"],
+  },
+  epNumActive: {
+    color: colors.brand,
+  },
+  epName: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "500",
+    fontFamily: fonts.medium,
+  },
+  epNameActive: {
+    color: colors.brand,
+  },
+  epPlaying: {
+    color: colors.brand,
+    fontSize: 14,
   },
 });
