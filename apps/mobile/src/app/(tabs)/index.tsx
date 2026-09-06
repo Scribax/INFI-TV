@@ -29,7 +29,6 @@ import { useChannels } from "@/hooks/use-channels";
 import { ChannelCard } from "@/components/channel-card";
 import { colors, fonts } from "@/constants/theme";
 import { flagEmoji } from "@/lib/flags";
-import { ANIME_TITLES } from "@/lib/anime";
 
 const QUICK_COUNTRIES = [
   { code: "AR", label: "Argentina" },
@@ -166,35 +165,6 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
       )}
-
-      {/* Anime */}
-      <View>
-        <Section title="Anime" onSeeAll={() => router.push("/anime")} />
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.carousel}
-        >
-          {ANIME_TITLES.slice(0, 10).map((t) => (
-            <Pressable
-              key={t.id}
-              style={styles.animeItem}
-              onPress={() =>
-                router.push({ pathname: "/anime/[id]", params: { id: t.id } })
-              }
-            >
-              <Image
-                source={{ uri: t.cover ?? undefined }}
-                style={styles.animePoster}
-                contentFit="cover"
-              />
-              <Text style={styles.animeName} numberOfLines={1}>
-                {t.name}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      </View>
 
       {/* Países */}
       <View>
@@ -381,22 +351,6 @@ const styles = StyleSheet.create({
   },
   carouselItem: {
     width: 140,
-  },
-  animeItem: {
-    width: 120,
-    gap: 6,
-  },
-  animePoster: {
-    width: 120,
-    height: 180,
-    borderRadius: 10,
-    backgroundColor: colors.surfaceRaised,
-  },
-  animeName: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: "600",
-    fontFamily: fonts.semibold,
   },
   grid: {
     flexDirection: "row",
