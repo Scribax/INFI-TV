@@ -31,19 +31,32 @@ import type {
 const POLL_MS = 20_000;
 
 function Player({ uri }: { uri: string }) {
-  const player = useVideoPlayer(uri, (p) => {
+  const [error, setError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
+  const player = useVideoPlayer(retryKey ? `${uri}#${retryKey}` : uri, (p) => {
     p.loop = false;
     p.play();
   });
 
-  return (
-    <VideoView
-      player={player}
-      style={styles.video}
-      contentFit="contain"
-      nativeControls
-    />
-  );
+  useEffect(() => {
+    const sub = player.addListener("statusChange", (s: { status: string; error?: unknown }) => {
+      if (s.status === "error") setError("No se pudo reproducir este canal. Probá otro o reintentá.");
+    });
+    return () => sub.remove();
+  }, [player]);
+
+  if (error !== null) {
+    return (
+      <View style={[styles.video, styles.playerError]}>
+        <Text style={styles.playerErrorText}>{error}</Text>
+        <Pressable style={styles.playerRetryBtn} onPress={() => { setError(null); setRetryKey((k) => k + 1); }}>
+          <Text style={styles.playerRetryText}>Reintentar</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  return <VideoView player={player} style={styles.video} contentFit="contain" nativeControls />;
 }
 
 function SuspendedOverlay({
@@ -86,30 +99,44 @@ function formatTime(iso: string): string {
 }
 
 function EpgSection({ programs }: { programs: EpgProgramItem[] }) {
+  const now = Date.now();
   return (
     <View style={styles.epg}>
       <Text style={styles.sectionLabel}>Programación</Text>
-      {programs.slice(0, 8).map((p) => (
-        <View key={p.id} style={styles.epgRow}>
-          <Text style={[styles.epgTime, p.isLive && styles.epgTimeNow]}>
-            {formatTime(p.startsAt)}
-          </Text>
-          <View style={styles.epgBody}>
-            <Text
-              style={[styles.epgName, p.isLive && styles.epgNameNow]}
-              numberOfLines={1}
-            >
-              {p.isLive ? "● " : ""}
-              {p.title}
-            </Text>
-            {p.description !== null && (
-              <Text style={styles.epgDesc} numberOfLines={2}>
-                {p.description}
-              </Text>
-            )}
+      {programs.slice(0, 8).map((p) => {
+        const start = new Date(p.startsAt).getTime();
+        const end = new Date(p.endsAt).getTime();
+        const total = end - start;
+        const progress = p.isLive && total > 0 ? Math.min(1, Math.max(0, (now - start) / total)) : 0;
+        const remainingMin = p.isLive ? Math.max(0, Math.round((end - now) / 60000)) : 0;
+        return (
+          <View key={p.id} style={[styles.epgRow, p.isLive && styles.epgRowLive]}>
+            <Text style={[styles.epgTime, p.isLive && styles.epgTimeNow]}>{formatTime(p.startsAt)}</Text>
+            <View style={styles.epgBody}>
+              <View style={styles.epgTitleRow}>
+                <Text style={[styles.epgName, p.isLive && styles.epgNameNow]} numberOfLines={1}>
+                  {p.title}
+                </Text>
+                {p.isLive && (
+                  <View style={styles.epgLivePill}>
+                    <View style={styles.epgLiveDot} />
+                    <Text style={styles.epgLivePillText}>EN VIVO</Text>
+                  </View>
+                )}
+              </View>
+              {p.isLive && (
+                <View style={styles.epgProgressTrack}>
+                  <View style={[styles.epgProgressFill, { width: `${progress * 100}%` }]} />
+                </View>
+              )}
+              {p.isLive && (
+                <Text style={styles.epgRemaining}>Quedan {remainingMin} min • hasta {formatTime(p.endsAt)}</Text>
+              )}
+              {p.description !== null && <Text style={styles.epgDesc} numberOfLines={2}>{p.description}</Text>}
+            </View>
           </View>
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
@@ -138,7 +165,10 @@ function RelatedChannels({ channel }: { channel: ChannelItem }) {
           <View key={c.id} style={styles.relatedItem}>
             <ChannelCard
               channel={c}
-              onPress={(cid) => router.replace(`/channel/${cid}`)}
+              onPress={(cid) => {
+                // zapping instantáneo: navegación sin apilar historial
+                router.replace(`/channel/${cid}`);
+              }}
             />
           </View>
         ))}
@@ -346,6 +376,28 @@ const styles = StyleSheet.create({
     aspectRatio: 16 / 9,
     backgroundColor: "#000",
   },
+  playerError: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    padding: 16,
+  },
+  playerErrorText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    textAlign: "center",
+  },
+  playerRetryBtn: {
+    backgroundColor: colors.brand,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  playerRetryText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 13,
+  },
   meta: {
     flexDirection: "row",
     alignItems: "center",
@@ -439,6 +491,12 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     paddingVertical: 6,
   },
+  epgRowLive: {
+    backgroundColor: "rgba(168,85,247,0.06)",
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    marginHorizontal: -6,
+  },
   epgTime: {
     color: colors.textFaint,
     fontSize: 13,
@@ -463,6 +521,49 @@ const styles = StyleSheet.create({
     color: colors.brand,
     fontWeight: "700",
     fontFamily: fonts.bold,
+  },
+  epgTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  epgLivePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(248,113,113,0.14)",
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 6,
+  },
+  epgLiveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.danger,
+  },
+  epgLivePillText: {
+    color: colors.danger,
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+  },
+  epgProgressTrack: {
+    height: 3,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderRadius: 2,
+    marginTop: 6,
+    overflow: "hidden",
+  },
+  epgProgressFill: {
+    height: "100%",
+    backgroundColor: colors.brand,
+    borderRadius: 2,
+  },
+  epgRemaining: {
+    color: colors.textFaint,
+    fontSize: 11,
+    marginTop: 4,
   },
   epgDesc: {
     color: colors.textMuted,
