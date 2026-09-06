@@ -1,3 +1,5 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../common/prisma/prisma.service";
 
@@ -11,6 +13,10 @@ export interface HealthCheckResult {
 
 const CONCURRENCY = 25;
 const TIMEOUT_MS = 6000;
+const AUDIO_CHECK_TIMEOUT_MS = 8000;
+const execFileAsync = promisify(execFile);
+let ffprobeChecked = false;
+let ffprobeAvailable = false;
 const UA =
   "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36";
 
@@ -36,6 +42,53 @@ export class StreamHealthService {
     } catch (e) {
       const name = (e as Error).name;
       return name === "TimeoutError" || name === "AbortError" ? "TIMEOUT" : "OFFLINE";
+    }
+  }
+
+  /**
+   * Verifica que el stream traiga al menos una pista de audio (ffprobe).
+   * Devuelve true = tiene audio, false = confirmado sin audio,
+   * undefined = no se pudo determinar (se conserva el estado ONLINE).
+   * Si ffprobe no está instalado, se desactiva solo sin romper el check.
+   */
+  private async hasAudio(url: string): Promise<boolean | undefined> {
+    if (!url.startsWith("http") || url.includes("youtube")) return undefined;
+    if (!ffprobeChecked) {
+      ffprobeChecked = true;
+      try {
+        await execFileAsync("ffprobe", ["-version"], { timeout: 5000 });
+        ffprobeAvailable = true;
+      } catch {
+        this.logger.warn("ffprobe no disponible: chequeo de audio desactivado");
+        ffprobeAvailable = false;
+      }
+    }
+    if (!ffprobeAvailable) return undefined;
+    try {
+      const { stdout } = await execFileAsync(
+        "ffprobe",
+        [
+          "-v",
+          "error",
+          "-rw_timeout",
+          "8000000",
+          "-analyzeduration",
+          "3000000",
+          "-probesize",
+          "1000000",
+          "-show_entries",
+          "stream=codec_type",
+          "-of",
+          "csv=p=0",
+          url,
+        ],
+        { timeout: AUDIO_CHECK_TIMEOUT_MS },
+      );
+      const types = stdout.split(/[\r\n]+/).map((l) => l.trim());
+      if (types.length === 0) return undefined;
+      return types.includes("audio") ? true : false;
+    } catch {
+      return undefined;
     }
   }
 
@@ -65,7 +118,14 @@ export class StreamHealthService {
       while (queue.length > 0) {
         const ch = queue.shift();
         if (ch === undefined) return;
-        const status = await this.probe(ch.streamUrl);
+        let status = await this.probe(ch.streamUrl);
+        if (status === "ONLINE") {
+          const audio = await this.hasAudio(ch.streamUrl);
+          if (audio === false) {
+            this.logger.log(`Sin audio: ${ch.id} -> OFFLINE`);
+            status = "OFFLINE";
+          }
+        }
         if (status === "ONLINE") online++;
         else if (status === "TIMEOUT") timeout++;
         else offline++;
