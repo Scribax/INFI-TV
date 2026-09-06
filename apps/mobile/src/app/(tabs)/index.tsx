@@ -166,6 +166,22 @@ export default function HomeScreen() {
         </View>
       )}
 
+      {/* Guía TV */}
+      <Pressable
+        onPress={() => router.push("/epg")}
+        style={({ pressed }) => [styles.guideCard, pressed && { opacity: 0.85 }]}
+      >
+        <LinearGradient colors={["#7c3aed", "#4f46e5"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.guideGradient}>
+          <View style={styles.guideText}>
+            <Text style={styles.guideTitle}>Guía TV</Text>
+            <Text style={styles.guideSub}>Qué dan ahora en cada canal</Text>
+          </View>
+          <View style={styles.guideBadge}>
+            <Text style={styles.guideBadgeText}>Abrir →</Text>
+          </View>
+        </LinearGradient>
+      </Pressable>
+
       {/* Países */}
       <View>
         <Section title="Países" onSeeAll={() => router.push("/paises")} />
@@ -383,4 +399,11 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
     textAlign: "center",
   },
+  guideCard: { marginHorizontal: 16, marginTop: 8, borderRadius: 16, overflow: "hidden" },
+  guideGradient: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16 },
+  guideText: { gap: 2 },
+  guideTitle: { color: "#fff", fontSize: 16, fontWeight: "700", fontFamily: fonts.bold },
+  guideSub: { color: "rgba(255,255,255,0.85)", fontSize: 12 },
+  guideBadge: { backgroundColor: "rgba(255,255,255,0.22)", paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999 },
+  guideBadgeText: { color: "#fff", fontSize: 12, fontWeight: "700" },
 });
